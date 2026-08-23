@@ -154,6 +154,37 @@ func commandName(group, opID string) string {
 	return strings.ReplaceAll(opID, "_", "-")
 }
 
+var (
+	wsRe          = regexp.MustCompile(`\s+`)
+	brRe          = regexp.MustCompile(`<br\s*/?>`)
+	boilerplateRe = regexp.MustCompile(`For more information please visit \S+`)
+)
+
+// flagHelp builds one-line flag help from the spec parameter description,
+// falling back to the raw query parameter name. The boilerplate docs-link
+// sentence is dropped when the description has more substantive content, so
+// truncation keeps the useful part (e.g. the list of filterable fields).
+func flagHelp(p param) string {
+	desc := brRe.ReplaceAllString(p.Description, " ")
+	if trimmed := strings.TrimSpace(boilerplateRe.ReplaceAllString(desc, "")); trimmed != "" {
+		desc = trimmed
+	}
+	// Backticks would be parsed by Cobra as the flag's value placeholder.
+	desc = strings.ReplaceAll(desc, "`", "'")
+	desc = strings.TrimSpace(wsRe.ReplaceAllString(desc, " "))
+	if desc == "" {
+		return "query parameter " + p.Name
+	}
+	if len(desc) > 120 {
+		if cut := strings.LastIndex(desc[:120], " "); cut > 60 {
+			desc = desc[:cut] + "..."
+		} else {
+			desc = desc[:117] + "..."
+		}
+	}
+	return desc
+}
+
 // flagName maps a query parameter name to a cobra flag name:
 // "page[size]" -> "page-size", "company_id" -> "company-id".
 func flagName(queryName string) string {
@@ -180,7 +211,7 @@ func renderCmds(version string, ops []genOp) []byte {
 				if i > 0 {
 					b.WriteString(", ")
 				}
-				fmt.Fprintf(&b, "{%q, %q}", q.Name, flagName(q.Name))
+				fmt.Fprintf(&b, "{%q, %q, %q}", q.Name, flagName(q.Name), flagHelp(q))
 			}
 			b.WriteString("}")
 		}

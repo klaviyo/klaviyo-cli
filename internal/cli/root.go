@@ -64,7 +64,7 @@ Get started:
 
 	cobra.CheckErr(root.RegisterFlagCompletionFunc("account", completeAccountNames))
 
-	root.AddCommand(newAuthCmd(), newAPICmd(), newVersionCmd())
+	root.AddCommand(newAuthCmd(), newAPICmd(), newConfigCmd(), newOpenCmd(), newVersionCmd())
 	addResourceCmds(root)
 	return root
 }

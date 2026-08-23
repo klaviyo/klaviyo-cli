@@ -13,10 +13,11 @@ import (
 )
 
 // queryParamSpec pairs an API query parameter name (e.g. "page[size]") with
-// its CLI flag name (e.g. "page-size").
+// its CLI flag name (e.g. "page-size") and one-line help text.
 type queryParamSpec struct {
 	Name string
 	Flag string
+	Help string
 }
 
 // opSpec describes one generated API operation command.
@@ -75,7 +76,7 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 
 	queryFlags := make([]*string, len(op.Query))
 	for i, q := range op.Query {
-		queryFlags[i] = cmd.Flags().String(q.Flag, "", "query parameter "+q.Name)
+		queryFlags[i] = cmd.Flags().String(q.Flag, "", q.Help)
 	}
 	var data string
 	if op.HasBody {

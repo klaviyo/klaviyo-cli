@@ -86,13 +86,14 @@ Assumed in scope (per review 2026-08-23). Ordered roughly by dependency.
 - [x] Raw API access (`gh api` / stripe `get|post|delete`)
 - [x] Typed resource commands (stripe: generated; gh: hand-written — we generate, see above). v1 note: bodies are raw `-d` JSON, not typed per-field flags like Stripe generates; open decisions on relationship/`client` command curation below still stand (all currently exposed uniformly)
 - [x] Shell completions: Cobra `completion` command plus dynamic account-name completion for `--account`, `auth switch`, `auth logout`
-- [ ] `config` command (get/set/list; open in editor)
-- [x] `--jq` global flag (embedded gojq, no external jq) and `--paginate`; TTY-aware table output still open
+- [x] `config` command, Stripe conventions: `--list` (keys redacted), `--set`/`--unset` (whitelisted keys), `-e` editor
+- [x] `--jq` global flag (embedded gojq, no external jq) and `--paginate`
+- [x] TTY-aware table output (gh model): list responses render as ID + preferred-attribute columns on interactive terminals only; piped/agent output stays raw JSON
 - [x] Update notifier: background check of latest GitHub release max once/24h (cached in `update-check.json`), stderr notice, `KLAVIYO_NO_UPDATE_NOTIFIER`/CI/non-TTY guards. NOTE: no-ops until the repo is public (unauthenticated Releases API)
-- [ ] Open-in-browser (`gh browse` / `stripe open`): `klaviyo open <shortcut>` → dashboard/docs deep links
-- [ ] Webhook forwarding to localhost (stripe `listen` core / gh `webhook forward` official extension): `klaviyo listen` — needs a relay or polling design against Klaviyo webhooks
-- [ ] Browser-based login (stripe pairing-code flow / gh device flow) — depends on OAuth support; today's API-key login is the interim
-- [ ] Docs-from-code: generated command reference (gh generates its manual from the Cobra tree) — seeds the docs site
+- [x] Open-in-browser: `klaviyo open <shortcut>` (Stripe convention) with `--list` and gh-style `--no-browser`
+- [ ] Webhook forwarding to localhost → deferred, design discussion in [#2](https://github.com/klaviyo/klaviyo-cli/issues/2)
+- [ ] Browser-based login → wanted; flow options + platform dependency in [#3](https://github.com/klaviyo/klaviyo-cli/issues/3)
+- [ ] Docs-from-code + CLI examples in the API reference → plan in [#4](https://github.com/klaviyo/klaviyo-cli/issues/4)
 
 ## Review list: features one CLI has but not the other
 
