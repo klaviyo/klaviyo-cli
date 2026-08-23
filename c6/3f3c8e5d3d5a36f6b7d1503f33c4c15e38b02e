@@ -1,0 +1,19 @@
+Makefile
+  s_214f8003f5b670::t_a2722a56fa2e97 4-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "c63f3c8e5d3d5a36f6b7d1503f33c4c15e38b02e",
+  "prompts": {},
+  "sessions": {
+    "s_214f8003f5b670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5152feb8-68ce-489d-a299-0cad9327b36f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
