@@ -1,0 +1,41 @@
+version: 2
+
+project_name: klaviyo-cli
+
+# No `go mod tidy` hook: releases must build the exact dependency set CI
+# tested (CI enforces a tidy go.mod).
+
+builds:
+  - id: klaviyo
+    binary: klaviyo
+    main: ./cmd/klaviyo
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X github.com/klaviyo/klaviyo-cli/internal/cli.version={{.Version}}
+      - -X github.com/klaviyo/klaviyo-cli/internal/cli.commit={{.ShortCommit}}
+      - -X github.com/klaviyo/klaviyo-cli/internal/cli.date={{.Date}}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+
+# TODO once the repo is public:
+# - brews: publish a Homebrew formula to a klaviyo/homebrew-tap repo
+# - nfpms: build .deb/.rpm packages
+# - dockers: publish a klaviyo/klaviyo-cli image

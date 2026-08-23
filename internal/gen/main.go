@@ -1,0 +1,274 @@
+// Command gen generates the CLI's resource commands from the vendored
+// Klaviyo OpenAPI spec. Run via `go generate ./...` (directive in
+// internal/cli/resources.go); outputs are committed.
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"regexp"
+	"sort"
+	"strings"
+)
+
+var httpMethods = []string{"get", "post", "put", "patch", "delete"}
+
+// Flag names already claimed by global or command flags.
+var reservedFlags = map[string]bool{
+	"account": true, "api-key": true, "revision": true,
+	"data": true, "paginate": true, "help": true,
+}
+
+type param struct {
+	Name        string `json:"name"`
+	In          string `json:"in"`
+	Required    bool   `json:"required"`
+	Description string `json:"description"`
+}
+
+type operation struct {
+	OperationID string          `json:"operationId"`
+	Summary     string          `json:"summary"`
+	Tags        []string        `json:"tags"`
+	Parameters  []param         `json:"parameters"`
+	RequestBody json.RawMessage `json:"requestBody"`
+}
+
+type spec struct {
+	Info struct {
+		Version string `json:"version"`
+	} `json:"info"`
+	Paths map[string]map[string]json.RawMessage `json:"paths"`
+}
+
+type genOp struct {
+	group, name, summary string
+	method, path         string
+	pathParams           []string
+	queryParams          []param
+	hasBody, paginated   bool
+}
+
+func main() {
+	specPath := flag.String("spec", "api/openapi/stable.json", "path to the OpenAPI spec")
+	cmdsOut := flag.String("cmds-out", "internal/cli/resources_gen.go", "generated commands file")
+	revOut := flag.String("rev-out", "internal/api/revision_gen.go", "generated revision file")
+	flag.Parse()
+
+	data, err := os.ReadFile(*specPath)
+	check(err)
+	var s spec
+	check(json.Unmarshal(data, &s))
+	if s.Info.Version == "" {
+		fatal("spec has no info.version")
+	}
+
+	ops := collect(&s)
+	check(os.WriteFile(*cmdsOut, renderCmds(s.Info.Version, ops), 0o644))
+	check(os.WriteFile(*revOut, renderRevision(s.Info.Version), 0o644))
+	fmt.Printf("generated %d commands across %d groups (revision %s)\n",
+		len(ops), countGroups(ops), s.Info.Version)
+}
+
+var pathParamRe = regexp.MustCompile(`\{([^}]+)\}`)
+
+func collect(s *spec) []genOp {
+	var ops []genOp
+	seen := map[string]string{} // group/name -> operationId, for collision detection
+	for path, methods := range s.Paths {
+		for _, method := range httpMethods {
+			raw, ok := methods[method]
+			if !ok {
+				continue
+			}
+			var op operation
+			check(json.Unmarshal(raw, &op))
+			if op.OperationID == "" || len(op.Tags) == 0 {
+				fatal(fmt.Sprintf("%s %s: missing operationId or tags", method, path))
+			}
+			group := groupName(op.Tags[0])
+			name := commandName(group, op.OperationID)
+			key := group + "/" + name
+			if prev, dup := seen[key]; dup {
+				fatal(fmt.Sprintf("command collision: %s from %s and %s", key, prev, op.OperationID))
+			}
+			seen[key] = op.OperationID
+
+			g := genOp{
+				group:   group,
+				name:    name,
+				summary: op.Summary,
+				method:  strings.ToUpper(method),
+				path:    path,
+				hasBody: len(op.RequestBody) > 0,
+			}
+			for _, m := range pathParamRe.FindAllStringSubmatch(path, -1) {
+				g.pathParams = append(g.pathParams, m[1])
+			}
+			for _, p := range op.Parameters {
+				if p.In == "query" {
+					g.queryParams = append(g.queryParams, p)
+					if p.Name == "page[cursor]" {
+						g.paginated = true
+					}
+				}
+			}
+			sort.Slice(g.queryParams, func(i, j int) bool { return g.queryParams[i].Name < g.queryParams[j].Name })
+			ops = append(ops, g)
+		}
+	}
+	sort.Slice(ops, func(i, j int) bool {
+		if ops[i].group != ops[j].group {
+			return ops[i].group < ops[j].group
+		}
+		return ops[i].name < ops[j].name
+	})
+	return ops
+}
+
+// groupName maps a spec tag to a command group: "Custom Objects" -> "custom-objects".
+func groupName(tag string) string {
+	return strings.ToLower(strings.ReplaceAll(tag, " ", "-"))
+}
+
+// commandName maps an operationId to a subcommand name. The five canonical
+// CRUD operations on a group's primary resource collapse to short verbs;
+// everything else is the kebab-cased operationId.
+func commandName(group, opID string) string {
+	plural := strings.ReplaceAll(group, "-", "_")
+	singular := strings.TrimSuffix(plural, "s")
+	switch opID {
+	case "get_" + plural:
+		return "list"
+	case "get_" + singular:
+		return "get"
+	case "create_" + singular:
+		return "create"
+	case "update_" + singular:
+		return "update"
+	case "delete_" + singular:
+		return "delete"
+	}
+	return strings.ReplaceAll(opID, "_", "-")
+}
+
+var (
+	wsRe          = regexp.MustCompile(`\s+`)
+	brRe          = regexp.MustCompile(`<br\s*/?>`)
+	boilerplateRe = regexp.MustCompile(`For more information please visit \S+#(\S+)`)
+	ctrlRe        = regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]`)
+)
+
+// anchorHelp replaces descriptions that are nothing but a docs link with real
+// help text, keyed on the link anchor. Covers the four boilerplate-only
+// parameter families in the spec (~450 flags).
+var anchorHelp = map[string]string{
+	"sparse-fieldsets": "comma-separated attribute names to include in the response",
+	"relationships":    "comma-separated related resources to include in the response",
+	"pagination":       "pagination cursor from a previous response's links.next",
+	"sorting":          "field to sort by; prefix with - for descending (e.g. -created)",
+}
+
+// flagHelp builds one-line flag help from the spec parameter description,
+// falling back to the raw query parameter name. The boilerplate docs-link
+// sentence is dropped when the description has more substantive content, so
+// truncation keeps the useful part (e.g. the list of filterable fields).
+func flagHelp(p param) string {
+	desc := brRe.ReplaceAllString(p.Description, " ")
+	// Control characters in spec text must never reach --help output.
+	desc = ctrlRe.ReplaceAllString(desc, " ")
+	if trimmed := strings.TrimSpace(boilerplateRe.ReplaceAllString(desc, "")); trimmed != "" {
+		desc = trimmed
+	} else if m := boilerplateRe.FindStringSubmatch(desc); m != nil {
+		// Description is nothing but the docs link: substitute real help.
+		if help, ok := anchorHelp[strings.TrimRight(m[1], ".")]; ok {
+			desc = help
+		}
+	}
+	// Backticks would be parsed by Cobra as the flag's value placeholder.
+	desc = strings.ReplaceAll(desc, "`", "'")
+	desc = strings.TrimSpace(wsRe.ReplaceAllString(desc, " "))
+	if desc == "" {
+		return "query parameter " + p.Name
+	}
+	if len(desc) > 120 {
+		if cut := strings.LastIndex(desc[:120], " "); cut > 60 {
+			desc = desc[:cut] + "..."
+		} else {
+			desc = desc[:117] + "..."
+		}
+	}
+	return desc
+}
+
+// flagName maps a query parameter name to a cobra flag name:
+// "page[size]" -> "page-size", "company_id" -> "company-id".
+func flagName(queryName string) string {
+	f := strings.NewReplacer("[", "-", "]", "", "_", "-").Replace(queryName)
+	if reservedFlags[f] {
+		f = "param-" + f
+	}
+	return f
+}
+
+func renderCmds(version string, ops []genOp) []byte {
+	var b strings.Builder
+	b.WriteString("// Code generated by internal/gen from api/openapi/stable.json; DO NOT EDIT.\n")
+	fmt.Fprintf(&b, "// Spec revision: %s\n\npackage cli\n\nvar resourceOps = []opSpec{\n", version)
+	for _, op := range ops {
+		fmt.Fprintf(&b, "\t{Group: %q, Name: %q, Summary: %q, Method: %q, Path: %q",
+			op.group, op.name, op.summary, op.method, op.path)
+		if len(op.pathParams) > 0 {
+			fmt.Fprintf(&b, ", PathParams: %#v", op.pathParams)
+		}
+		if len(op.queryParams) > 0 {
+			// One param per line keeps spec-sync diffs reviewable.
+			b.WriteString(", Query: []queryParamSpec{\n")
+			for _, q := range op.queryParams {
+				fmt.Fprintf(&b, "\t\t{%q, %q, %q},\n", q.Name, flagName(q.Name), flagHelp(q))
+			}
+			b.WriteString("\t}")
+		}
+		if op.hasBody {
+			b.WriteString(", HasBody: true")
+		}
+		if op.paginated {
+			b.WriteString(", Paginated: true")
+		}
+		b.WriteString("},\n")
+	}
+	b.WriteString("}\n")
+	return []byte(b.String())
+}
+
+func renderRevision(version string) []byte {
+	return fmt.Appendf(nil, `// Code generated by internal/gen from api/openapi/stable.json; DO NOT EDIT.
+
+package api
+
+// DefaultRevision is the Klaviyo API revision the CLI pins by default,
+// matching the vendored OpenAPI spec the commands were generated from.
+const DefaultRevision = %q
+`, version)
+}
+
+func countGroups(ops []genOp) int {
+	groups := map[string]bool{}
+	for _, op := range ops {
+		groups[op.group] = true
+	}
+	return len(groups)
+}
+
+func check(err error) {
+	if err != nil {
+		fatal(err.Error())
+	}
+}
+
+func fatal(msg string) {
+	fmt.Fprintln(os.Stderr, "gen:", msg)
+	os.Exit(1)
+}
