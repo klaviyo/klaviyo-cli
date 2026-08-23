@@ -85,10 +85,10 @@ Assumed in scope (per review 2026-08-23). Ordered roughly by dependency.
 - [x] Multi-account/profile auth with switch (`gh auth switch` / stripe `--project-name` + `switch`)
 - [x] Raw API access (`gh api` / stripe `get|post|delete`)
 - [x] Typed resource commands (stripe: generated; gh: hand-written — we generate, see above). v1 note: bodies are raw `-d` JSON, not typed per-field flags like Stripe generates; open decisions on relationship/`client` command curation below still stand (all currently exposed uniformly)
-- [ ] Shell completions (`completion` for bash/zsh/fish/powershell — near-free with Cobra)
+- [x] Shell completions: Cobra `completion` command plus dynamic account-name completion for `--account`, `auth switch`, `auth logout`
 - [ ] `config` command (get/set/list; open in editor)
-- [ ] Machine-readable output: `--paginate`, `--jq` (embed gojq like gh — no external jq dependency), TTY-aware table vs JSON output
-- [ ] Update notifier: check latest GitHub release max once/24h, print notice to stderr, `KLAVIYO_NO_UPDATE_NOTIFIER` opt-out (both CLIs do this; neither self-updates)
+- [x] `--jq` global flag (embedded gojq, no external jq) and `--paginate`; TTY-aware table output still open
+- [x] Update notifier: background check of latest GitHub release max once/24h (cached in `update-check.json`), stderr notice, `KLAVIYO_NO_UPDATE_NOTIFIER`/CI/non-TTY guards. NOTE: no-ops until the repo is public (unauthenticated Releases API)
 - [ ] Open-in-browser (`gh browse` / `stripe open`): `klaviyo open <shortcut>` → dashboard/docs deep links
 - [ ] Webhook forwarding to localhost (stripe `listen` core / gh `webhook forward` official extension): `klaviyo listen` — needs a relay or polling design against Klaviyo webhooks
 - [ ] Browser-based login (stripe pairing-code flow / gh device flow) — depends on OAuth support; today's API-key login is the interim

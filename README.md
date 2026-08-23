@@ -29,10 +29,29 @@ klaviyo profiles get 01ABC123 --fields-profile email,first_name
 klaviyo lists list --paginate          # follow cursors, merge all pages
 klaviyo events create -d @event.json
 
+# Filter any response with the built-in jq (no jq install needed)
+klaviyo lists list --jq '.data[].attributes.name'
+klaviyo profiles list --paginate --jq '.data | length'
+
 # Or call any endpoint raw
 klaviyo api /api/metrics/
 klaviyo api POST /api/events/ -d @event.json
 ```
+
+## Shell completion
+
+Completion covers every command, flag, and configured account name:
+
+```bash
+# zsh (bash/fish/powershell also supported)
+klaviyo completion zsh > "${fpath[1]}/_klaviyo"
+```
+
+## Updates
+
+The CLI checks GitHub for a newer release at most once per day and prints a
+notice to stderr (interactive terminals only — never in CI or when piped).
+Opt out with `KLAVIYO_NO_UPDATE_NOTIFIER=1`. The CLI never self-updates.
 
 ## Multiple accounts
 

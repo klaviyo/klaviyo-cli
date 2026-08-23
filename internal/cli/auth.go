@@ -150,9 +150,10 @@ use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 
 func newAuthLogoutCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "logout <account>",
-		Short: "Remove a stored account and its key",
-		Args:  cobra.ExactArgs(1),
+		Use:               "logout <account>",
+		Short:             "Remove a stored account and its key",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAccountNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			cfg, err := config.Load()
@@ -212,9 +213,10 @@ func newAuthListCmd() *cobra.Command {
 
 func newAuthSwitchCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "switch <account>",
-		Short: "Set the default account",
-		Args:  cobra.ExactArgs(1),
+		Use:               "switch <account>",
+		Short:             "Set the default account",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAccountNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			cfg, err := config.Load()

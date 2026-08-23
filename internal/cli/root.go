@@ -23,13 +23,23 @@ type globalOpts struct {
 	account  string
 	apiKey   string
 	revision string
+	jq       string
 }
 
 var opts globalOpts
 
-// Execute runs the root command.
+// Execute runs the root command, checking for newer releases in the
+// background and printing a notice to stderr when one exists.
 func Execute() error {
-	return newRootCmd().Execute()
+	var updateCh <-chan string
+	if shouldCheckForUpdate() {
+		updateCh = startUpdateCheck()
+	}
+	err := newRootCmd().Execute()
+	if updateCh != nil {
+		maybeNotifyUpdate(updateCh)
+	}
+	return err
 }
 
 func newRootCmd() *cobra.Command {
@@ -50,10 +60,26 @@ Get started:
 	pf.StringVarP(&opts.account, "account", "a", "", "named account to use (default: KLAVIYO_ACCOUNT env, then configured default)")
 	pf.StringVar(&opts.apiKey, "api-key", "", "private API key, bypassing stored accounts (prefer KLAVIYO_API_KEY env)")
 	pf.StringVar(&opts.revision, "revision", "", "API revision header (default "+api.DefaultRevision+")")
+	pf.StringVar(&opts.jq, "jq", "", "filter the JSON response through a jq expression (built in, no jq install needed)")
+
+	cobra.CheckErr(root.RegisterFlagCompletionFunc("account", completeAccountNames))
 
 	root.AddCommand(newAuthCmd(), newAPICmd(), newVersionCmd())
 	addResourceCmds(root)
 	return root
+}
+
+// completeAccountNames shell-completes configured account names.
+func completeAccountNames(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	names := make([]string, 0, len(cfg.Accounts))
+	for name, acct := range cfg.Accounts {
+		names = append(names, fmt.Sprintf("%s\t%s", name, acct.Organization))
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
 // resolveAccountName returns the effective account name, which may be empty
