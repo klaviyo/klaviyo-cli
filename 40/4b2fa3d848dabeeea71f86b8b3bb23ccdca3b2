@@ -1,0 +1,23 @@
+.github/workflows/ci.yml
+  s_214f8003f5b670::t_702161bbbcb596 20-21
+README.md
+  s_214f8003f5b670::t_1018d6ec264b84 63,68-69
+Makefile
+  s_214f8003f5b670::t_5c6f58038cb1fc 1-7,15-23,25-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "404b2fa3d848dabeeea71f86b8b3bb23ccdca3b2",
+  "prompts": {},
+  "sessions": {
+    "s_214f8003f5b670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5152feb8-68ce-489d-a299-0cad9327b36f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
