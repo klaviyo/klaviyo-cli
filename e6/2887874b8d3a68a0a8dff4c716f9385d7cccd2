@@ -1,0 +1,55 @@
+internal/gen/main.go
+  s_214f8003f5b670::t_dd2d3a7f9eb638 1-227
+ARCHITECTURE.md
+  s_214f8003f5b670::t_42dc500c7b72a0 40-65
+  s_214f8003f5b670::t_85fd1c835e0b0e 12-13
+internal/cli/resources.go
+  s_214f8003f5b670::t_348fa1807726be 1-168
+internal/cli/output.go
+  s_214f8003f5b670::t_f33f56aa6359bf 1-36
+internal/cli/api.go
+  s_214f8003f5b670::t_810f59698a08b3 52
+internal/api/client.go
+  s_214f8003f5b670::t_9221bc0be93126 18-19
+internal/cli/resources_test.go
+  s_214f8003f5b670::t_4dfb1c8a36c663 1-78
+Makefile
+  s_214f8003f5b670::t_4ec343244844dd 9,14-15
+  s_214f8003f5b670::t_58c9b3bf70b6e9 16
+CLI_PRODUCT_BOOTSTRAP_ISSUES.md
+  s_214f8003f5b670::t_afda382de4293f 36-40
+  s_214f8003f5b670::t_aa7d5564aeca18 87
+README.md
+  s_214f8003f5b670::t_270b2a64dcac1c 24-32
+internal/gen/main_test.go
+  s_214f8003f5b670::t_b10ea287198bea 39-45
+  s_214f8003f5b670::t_e831268a51810d 1-38,46-52
+.github/workflows/ci.yml
+  s_214f8003f5b670::t_2b1f0aac038f34 22-26
+internal/cli/root.go
+  s_214f8003f5b670::t_3369d3c9f9ce46 55
+.github/workflows/sync-openapi.yml
+  s_214f8003f5b670::t_212dc45860ac1d 1-40
+api/openapi/stable.json
+  s_214f8003f5b670::t_93666a8062d362 1-95007
+internal/api/revision_gen.go
+  s_214f8003f5b670::t_1de334622ea7e4 1-7
+internal/cli/resources_gen.go
+  s_214f8003f5b670::t_c06936b0f506e0 1-352
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "e62887874b8d3a68a0a8dff4c716f9385d7cccd2",
+  "prompts": {},
+  "sessions": {
+    "s_214f8003f5b670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5152feb8-68ce-489d-a299-0cad9327b36f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
