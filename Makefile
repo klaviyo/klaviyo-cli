@@ -1,4 +1,10 @@
-.PHONY: build test lint fmt
+# Dev tools are pinned and self-installed into ./bin so local runs and CI
+# use identical versions (only Go itself is required). Bump the version here;
+# CI runs the same targets.
+GOLANGCI_LINT_VERSION := v2.13.1
+GOLANGCI_LINT := bin/golangci-lint-$(GOLANGCI_LINT_VERSION)
+
+.PHONY: build test lint fmt clean
 
 build:
 	go build -o bin/klaviyo ./cmd/klaviyo
@@ -6,8 +12,15 @@ build:
 test:
 	go test -race ./...
 
-lint:
-	golangci-lint run
+lint: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run
 
-fmt:
-	golangci-lint fmt
+fmt: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) fmt
+
+$(GOLANGCI_LINT):
+	GOBIN=$(CURDIR)/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	mv bin/golangci-lint $(GOLANGCI_LINT)
+
+clean:
+	rm -rf bin dist

@@ -60,13 +60,13 @@ Typed resource commands (`klaviyo profiles list`, `klaviyo campaigns get`, ...) 
 
 ## Development
 
-Requires Go 1.25+.
+Requires Go 1.25+; everything else self-installs.
 
 ```bash
 make build   # builds bin/klaviyo
 make test    # go test -race ./...
-make lint    # golangci-lint run
-make fmt     # golangci-lint fmt
+make lint    # installs the pinned golangci-lint into ./bin, then runs it
+make fmt     # gofumpt + goimports via golangci-lint fmt
 ```
 
 Releases are cut by pushing a `v*` tag; GoReleaser builds and publishes the binaries.

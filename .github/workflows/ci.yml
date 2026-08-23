@@ -17,9 +17,8 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v8
-        with:
-          version: latest
+      # Runs the same pinned golangci-lint the Makefile installs locally.
+      - run: make lint
 
   test:
     name: Test (${{ matrix.os }})
