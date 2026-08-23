@@ -11,7 +11,7 @@ func TestCheckForUpdate(t *testing.T) {
 	hits := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits++
-		w.Write([]byte(`{"tag_name":"v0.2.0"}`))
+		_, _ = w.Write([]byte(`{"tag_name":"v0.2.0"}`))
 	}))
 	defer srv.Close()
 	oldURL := releaseURL
