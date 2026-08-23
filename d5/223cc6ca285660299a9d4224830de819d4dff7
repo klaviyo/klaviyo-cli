@@ -1,0 +1,53 @@
+CLI_PRODUCT_BOOTSTRAP_ISSUES.md
+  s_214f8003f5b670::t_e9a950a5c4ae72 88,90-91
+internal/cli/output_test.go
+  s_214f8003f5b670::t_590ecac783aa3c 1-36
+README.md
+  s_214f8003f5b670::t_a22ccbc1e25fc4 32-35,41-54
+  s_214f8003f5b670::t_ff5ee9e586b956 55
+internal/cli/output.go
+  s_214f8003f5b670::t_d78cc1141dd362 8,11
+  s_214f8003f5b670::t_c5a47131613265 23-25,27-32,46-77
+  s_d9189151adcd1f::t_bcfa84bf43e0e9 78
+go.mod
+  s_214f8003f5b670::t_38e80e5f4b4cc8 15
+  s_214f8003f5b670::t_a7bc07a75cf3de 6,9
+internal/cli/update_test.go
+  s_214f8003f5b670::t_86295d73289c0a 1-51
+internal/cli/root.go
+  s_214f8003f5b670::t_7eccfc2be433e2 72-84
+  s_214f8003f5b670::t_0a340791a6be1d 26
+  s_214f8003f5b670::t_50cfc6c60c0a01 31-32,34-42
+  s_214f8003f5b670::t_62e8dee7e15425 63-65
+internal/cli/auth.go
+  s_214f8003f5b670::t_b84c204dbe62d7 216-219
+  s_214f8003f5b670::t_28a4ecbebdb738 153-156
+internal/cli/update.go
+  s_214f8003f5b670::t_04a96da6e4f243 1-126
+go.sum
+  s_214f8003f5b670::t_8514b1ee275fb5 4-7,16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "d5223cc6ca285660299a9d4224830de819d4dff7",
+  "prompts": {},
+  "sessions": {
+    "s_214f8003f5b670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5152feb8-68ce-489d-a299-0cad9327b36f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    },
+    "s_d9189151adcd1f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec417bff-b424-4cf1-b485-0285fdd12a98",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
