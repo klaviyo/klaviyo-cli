@@ -15,8 +15,7 @@ go install github.com/klaviyo/klaviyo-cli/cmd/klaviyo@latest
 ## Quickstart
 
 ```bash
-# Store a private API key for an account (verified before saving,
-# stored in the OS keychain)
+# Store a private API key for an account (verified before saving)
 klaviyo auth login
 
 # Confirm credentials
@@ -43,7 +42,7 @@ klaviyo api /api/metrics/ --account prod
 KLAVIYO_ACCOUNT=prod klaviyo api /api/metrics/
 ```
 
-For CI or headless machines without an OS keychain, skip stored accounts and set `KLAVIYO_API_KEY` (or pass `--api-key`).
+Keys are stored in `~/.config/klaviyo/config.toml` with `0600` permissions (OS keychain storage is planned — see issue #1). For CI, skip stored accounts and set `KLAVIYO_API_KEY` (or pass `--api-key`).
 
 ## Commands
 

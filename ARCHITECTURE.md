@@ -7,16 +7,15 @@ The Klaviyo CLI is a Go binary modeled on the Stripe CLI: it wraps the Klaviyo A
 ```
 cmd/klaviyo            entrypoint (main.go only; all logic lives in internal/)
 internal/cli           Cobra command tree; flag parsing, output rendering
-internal/config        config.toml read/write (account metadata, default account)
-internal/auth          API key storage in the OS keychain
+internal/config        config.toml read/write (account profiles, default account)
 internal/api           HTTP client: auth header, revision header, retries
 ```
 
-Dependency direction: `cli → {config, auth, api}`. The three leaf packages do not import each other or `cli`.
+Dependency direction: `cli → {config, api}`. The leaf packages do not import each other or `cli`.
 
 ## Credential and account model
 
-A named **account profile** is the unit of auth. Its metadata (Klaviyo account ID, organization name) lives in `~/.config/klaviyo/config.toml`; its private API key lives in the OS keychain (macOS Keychain / Windows Credential Manager / Linux Secret Service) under service `klaviyo-cli`, username = profile name. Keys never touch disk.
+A named **account profile** is the unit of auth. Profiles — Klaviyo account ID, organization name, and the private API key — live in `~/.config/klaviyo/config.toml`, written with 0600 permissions (0700 directory). This matches the Stripe CLI's model; migrating keys to the OS keychain (as the GitHub CLI does) is planned in [issue #1](https://github.com/klaviyo/klaviyo-cli/issues/1).
 
 Key resolution precedence (`internal/cli/root.go`):
 
@@ -39,9 +38,9 @@ Key resolution precedence (`internal/cli/root.go`):
 ## Design decisions
 
 - **Go + Cobra, no Viper.** Cobra is the standard CLI framework (Stripe CLI, GitHub CLI, kubectl). Viper (its usual config companion) is heavyweight and global-state driven; config needs here are one small TOML file, handled explicitly in `internal/config`.
-- **Keys in the OS keychain, not config files.** Deviates from the Stripe CLI (plaintext config) deliberately. `KLAVIYO_API_KEY` is the documented fallback for headless/CI environments where no Secret Service is available.
+- **Keys in the config file, keychain later.** v0 stores keys in config.toml (0600) like the Stripe CLI, keeping storage simple and headless-friendly. OS keychain storage — the GitHub CLI's current default — is tracked in issue #1. `KLAVIYO_API_KEY`/`--api-key` bypass stored profiles for CI.
 - **`internal/` for everything.** The Go compiler forbids external imports of `internal/...`, so nothing here is public API until deliberately moved to `pkg/`.
-- **Static binaries.** `CGO_ENABLED=0` everywhere (the keychain library is pure Go), so releases are dependency-free single files.
+- **Static binaries.** `CGO_ENABLED=0` everywhere, so releases are dependency-free single files.
 - **Module path is the repo URL.** `github.com/klaviyo/klaviyo-cli` — renaming the repo means rewriting every import.
 
 ## Roadmap
@@ -49,5 +48,6 @@ Key resolution precedence (`internal/cli/root.go`):
 1. **Typed resource commands** — `klaviyo profiles list`, `klaviyo campaigns get <id>`, etc., generated or hand-mapped from the [Klaviyo OpenAPI spec](https://github.com/klaviyo/openapi); shared pagination (`--all`), `--output json|table`.
 2. **Docs site** — `docs/` static site in the style of docs.stripe.com/stripe-cli.
 3. **Distribution** — Homebrew tap, .deb/.rpm, Docker image (all wired in `.goreleaser.yaml` once the repo is public).
-4. **OAuth login** — browser-based flow as an alternative to pasting private keys.
-5. **Headless workflows** — fold in the resources-as-files model from [headless-klaviyo](https://github.com/klaviyo/headless-klaviyo) as `pull`/`push` command groups.
+4. **OS keychain key storage** — [issue #1](https://github.com/klaviyo/klaviyo-cli/issues/1).
+5. **OAuth login** — browser-based flow as an alternative to pasting private keys.
+6. **Headless workflows** — fold in the resources-as-files model from [headless-klaviyo](https://github.com/klaviyo/headless-klaviyo) as `pull`/`push` command groups.

@@ -22,7 +22,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	in := &Config{
 		DefaultAccount: "prod",
 		Accounts: map[string]Account{
-			"prod":    {ID: "AbC123", Organization: "Acme Inc"},
+			"prod":    {ID: "AbC123", Organization: "Acme Inc", APIKey: "pk_secret"},
 			"staging": {ID: "XyZ789", Organization: "Acme Staging"},
 		},
 	}
@@ -42,5 +42,8 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if out.Accounts["prod"].Organization != "Acme Inc" {
 		t.Errorf("prod org = %q", out.Accounts["prod"].Organization)
+	}
+	if out.Accounts["prod"].APIKey != "pk_secret" {
+		t.Errorf("prod api key = %q", out.Accounts["prod"].APIKey)
 	}
 }

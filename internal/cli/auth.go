@@ -14,7 +14,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/klaviyo/klaviyo-cli/internal/api"
-	"github.com/klaviyo/klaviyo-cli/internal/auth"
 	"github.com/klaviyo/klaviyo-cli/internal/config"
 )
 
@@ -78,11 +77,11 @@ func newAuthLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Store an API key for a named account",
-		Long: `Store a private API key for a named account in the OS keychain.
+		Long: `Store a private API key for a named account.
 
-The key is verified against the Klaviyo API before it is stored. The first
-account added becomes the default; use --set-default (or ` + "`klaviyo auth switch`" + `)
-to change it later.`,
+The key is verified against the Klaviyo API before it is stored in the CLI
+config file (0600 permissions). The first account added becomes the default;
+use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			interactive := term.IsTerminal(int(os.Stdin.Fd()))
 
@@ -122,14 +121,11 @@ to change it later.`,
 				return err
 			}
 
-			if err := auth.SetKey(name, key); err != nil {
-				return fmt.Errorf("storing key in keychain: %w", err)
-			}
 			cfg, err := config.Load()
 			if err != nil {
 				return err
 			}
-			cfg.Accounts[name] = config.Account{ID: id, Organization: org}
+			cfg.Accounts[name] = config.Account{ID: id, Organization: org, APIKey: key}
 			if cfg.DefaultAccount == "" || setDefault {
 				cfg.DefaultAccount = name
 			}
@@ -137,7 +133,9 @@ to change it later.`,
 				return err
 			}
 
+			path, _ := config.Path()
 			fmt.Fprintf(cmd.OutOrStdout(), "Logged in to %q (%s, account %s)\n", name, org, id)
+			fmt.Fprintf(cmd.OutOrStdout(), "Key stored in %s\n", path)
 			if cfg.DefaultAccount == name {
 				fmt.Fprintf(cmd.OutOrStdout(), "%q is now the default account\n", name)
 			}
@@ -163,9 +161,6 @@ func newAuthLogoutCmd() *cobra.Command {
 			}
 			if _, ok := cfg.Accounts[name]; !ok {
 				return fmt.Errorf("unknown account %q", name)
-			}
-			if err := auth.DeleteKey(name); err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not remove keychain entry: %v\n", err)
 			}
 			delete(cfg.Accounts, name)
 			if cfg.DefaultAccount == name {

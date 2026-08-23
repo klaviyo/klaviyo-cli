@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/klaviyo/klaviyo-cli/internal/api"
-	"github.com/klaviyo/klaviyo-cli/internal/auth"
 	"github.com/klaviyo/klaviyo-cli/internal/config"
 )
 
@@ -69,8 +68,8 @@ func resolveAccountName(cfg *config.Config) string {
 }
 
 // resolveKey returns the API key to use, in precedence order:
-// --api-key flag, KLAVIYO_API_KEY env, then the selected account's keychain
-// entry.
+// --api-key flag, KLAVIYO_API_KEY env, then the selected account's stored
+// key.
 func resolveKey() (string, error) {
 	if opts.apiKey != "" {
 		return opts.apiKey, nil
@@ -86,14 +85,14 @@ func resolveKey() (string, error) {
 	if name == "" {
 		return "", errors.New("no account configured; run `klaviyo auth login` or set KLAVIYO_API_KEY")
 	}
-	if _, ok := cfg.Accounts[name]; !ok {
+	acct, ok := cfg.Accounts[name]
+	if !ok {
 		return "", fmt.Errorf("unknown account %q; run `klaviyo auth list`", name)
 	}
-	key, err := auth.GetKey(name)
-	if err != nil {
-		return "", fmt.Errorf("no stored key for account %q (keychain: %w); re-run `klaviyo auth login --account %s`", name, err, name)
+	if acct.APIKey == "" {
+		return "", fmt.Errorf("no stored key for account %q; re-run `klaviyo auth login --account %s`", name, name)
 	}
-	return key, nil
+	return acct.APIKey, nil
 }
 
 // newClient builds an API client for the selected account.
