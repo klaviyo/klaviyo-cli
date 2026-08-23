@@ -1,0 +1,298 @@
+package cli
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"maps"
+	"net/url"
+	"os"
+	"slices"
+	"strings"
+	"text/tabwriter"
+
+	"github.com/itchyny/gojq"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
+	"github.com/klaviyo/klaviyo-cli/internal/api"
+)
+
+// stdoutIsTTY is stubbed in tests.
+var stdoutIsTTY = func() bool { return term.IsTerminal(int(os.Stdout.Fd())) }
+
+// shouldRenderTable decides whether list responses render as tables: only
+// when writing to a real interactive terminal, so piped output stays raw
+// JSON. Stubbed in tests.
+var shouldRenderTable = func(w io.Writer) bool {
+	return w == io.Writer(os.Stdout) && stdoutIsTTY()
+}
+
+// apiDoer is the client surface commands need; satisfied by *api.Client and
+// stubbed in tests.
+type apiDoer interface {
+	Do(ctx context.Context, method, path string, query url.Values, body []byte) (*api.Response, error)
+}
+
+// printResponse renders a JSON response — pretty-printed, filtered through
+// --jq when set, or as a table for list responses on interactive terminals —
+// and returns an error for non-2xx statuses (after printing the body, so API
+// error details are shown).
+func printResponse(cmd *cobra.Command, resp *api.Response) error {
+	w := cmd.OutOrStdout()
+	if opts.jq != "" {
+		if resp.OK() {
+			// A 204/empty-body success has nothing to filter: print nothing
+			// and exit 0 (tags update returns 204 — erroring here would fail
+			// scripts on a request that succeeded).
+			if len(bytes.TrimSpace(resp.Body)) == 0 {
+				return nil
+			}
+			return applyJQ(w, resp.Body, opts.jq, shouldRenderTable(w))
+		}
+		// --jq reserves stdout for the filtered result. An error body can't
+		// be filtered meaningfully, so it goes to stderr — a script's
+		// ID=$(... --jq .data.id) captures nothing instead of the error
+		// blob, and the non-2xx still returns an error below.
+		w = cmd.ErrOrStderr()
+	}
+	if resp.OK() && shouldRenderTable(w) {
+		if items, ok := parseResourceList(resp.Body); ok {
+			renderTable(w, items)
+			// The table hides links.next, so a terminal user would otherwise
+			// have no sign that more pages exist nor a cursor to continue
+			// with. stderr keeps the hint out of captures and pipes. This
+			// also fires when --paginate stopped at its page cap, since the
+			// merged document carries the continuation link.
+			if cursor := nextCursor(resp.Body); cursor != "" {
+				fmt.Fprintf(cmd.ErrOrStderr(), "\nMore results — continue with: --page-cursor %s\n", sanitizeTerminal(cursor))
+			}
+			return nil
+		}
+	}
+	out := resp.Body
+	var pretty bytes.Buffer
+	if json.Indent(&pretty, resp.Body, "", "  ") == nil {
+		out = pretty.Bytes()
+	} else if shouldRenderTable(w) {
+		// Not valid JSON, going to a terminal: neutralize control bytes so
+		// a hostile response cannot inject escape sequences. (Valid JSON
+		// keeps control characters \u-escaped, so the pretty path is safe.)
+		out = []byte(sanitizeTerminal(string(out)))
+	}
+	if len(out) > 0 {
+		fmt.Fprintln(w, string(out))
+	}
+	if !resp.OK() {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// applyJQ runs a jq expression over a JSON body. Following jq/gh conventions,
+// string results print raw and other values print as JSON, one result per
+// line. Raw strings going to a terminal are sanitized against escape
+// injection; piped output is byte-faithful.
+func applyJQ(w io.Writer, body []byte, expr string, toTerminal bool) error {
+	query, err := gojq.Parse(expr)
+	if err != nil {
+		return fmt.Errorf("invalid --jq expression: %w", err)
+	}
+	var input any
+	if err := json.Unmarshal(body, &input); err != nil {
+		return fmt.Errorf("--jq requires a JSON response: %w", err)
+	}
+	iter := query.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			return nil
+		}
+		if err, isErr := v.(error); isErr {
+			return fmt.Errorf("jq: %w", err)
+		}
+		if s, isStr := v.(string); isStr {
+			if toTerminal {
+				s = sanitizeTerminal(s)
+			}
+			fmt.Fprintln(w, s)
+			continue
+		}
+		// json.Marshal HTML-escapes & < > (& etc.), which corrupts
+		// URLs like links.next when copied out of jq output; an encoder
+		// with SetEscapeHTML(false) emits them verbatim. Control characters
+		// stay \u-escaped either way, so terminal output remains safe.
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(false)
+		if err := enc.Encode(v); err != nil {
+			return err
+		}
+		// Encode appends the newline itself.
+		if _, err := w.Write(buf.Bytes()); err != nil {
+			return err
+		}
+	}
+}
+
+// nextCursor extracts the bare pagination cursor from a list response's
+// links.next, for the table footer hint. Empty when there is no next page
+// (or the link carries no recognizable cursor parameter).
+func nextCursor(body []byte) string {
+	var parsed struct {
+		Links struct {
+			Next string `json:"next"`
+		} `json:"links"`
+	}
+	if json.Unmarshal(body, &parsed) != nil || parsed.Links.Next == "" {
+		return ""
+	}
+	u, err := url.Parse(parsed.Links.Next)
+	if err != nil {
+		return ""
+	}
+	q := u.Query()
+	for _, name := range []string{"page[cursor]", "page_cursor"} {
+		if v := q.Get(name); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+type resourceItem struct {
+	ID         string         `json:"id"`
+	Attributes map[string]any `json:"attributes"`
+}
+
+// parseResourceList reports whether body is a JSON:API list response.
+func parseResourceList(body []byte) ([]resourceItem, bool) {
+	var parsed struct {
+		Data []resourceItem `json:"data"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil || parsed.Data == nil {
+		return nil, false
+	}
+	return parsed.Data, true
+}
+
+// Attribute columns shown first when present, in this order.
+var preferredColumns = []string{"name", "email", "title", "subject", "status", "created", "updated"}
+
+const maxAttrColumns = 4
+
+// renderTable prints a JSON:API resource list as an aligned table: ID plus up
+// to maxAttrColumns scalar attributes, preferring well-known fields. Cell
+// values are attacker-influenced (profile names, campaign subjects) and this
+// path only runs on terminals, so cells are sanitized against escape
+// injection.
+func renderTable(w io.Writer, items []resourceItem) {
+	if len(items) == 0 {
+		fmt.Fprintln(w, "No results")
+		return
+	}
+	cols := chooseColumns(items)
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	header := "ID"
+	for _, c := range cols {
+		header += "\t" + c
+	}
+	fmt.Fprintln(tw, header)
+	for _, item := range items {
+		row := sanitizeTerminal(item.ID)
+		for _, c := range cols {
+			row += "\t" + cellValue(item.Attributes[c])
+		}
+		fmt.Fprintln(tw, row)
+	}
+	_ = tw.Flush()
+}
+
+// chooseColumns picks the attribute columns: well-known fields first, then
+// remaining attributes alphabetically. Candidates come from every item, not
+// just the first — a field that is null in row one but set in row five
+// still earns its column, so column choice doesn't depend on row order.
+// Scalar-valued fields fill the slots first; object/array fields (rendered
+// as compact JSON) are admitted only when slots remain, which keeps default
+// tables scalar while letting an explicitly requested nested field (e.g.
+// --fields-campaign send_strategy) still produce a column.
+func chooseColumns(items []resourceItem) []string {
+	present := map[string]bool{}
+	scalar := map[string]bool{}
+	for _, item := range items {
+		for k, v := range item.Attributes {
+			present[k] = true
+			switch v.(type) {
+			case string, float64, bool:
+				scalar[k] = true
+			}
+		}
+	}
+	var cols []string
+	for _, c := range preferredColumns {
+		if present[c] && len(cols) < maxAttrColumns {
+			cols = append(cols, c)
+		}
+	}
+	keys := slices.Sorted(maps.Keys(present))
+	for _, wantScalar := range []bool{true, false} {
+		for _, k := range keys {
+			if len(cols) >= maxAttrColumns {
+				return cols
+			}
+			if scalar[k] == wantScalar && !slices.Contains(cols, k) {
+				cols = append(cols, k)
+			}
+		}
+	}
+	return cols
+}
+
+func cellValue(v any) string {
+	switch v.(type) {
+	case nil:
+		return ""
+	case string, float64, bool:
+		return sanitizeTerminal(truncate(fmt.Sprintf("%v", v), 40))
+	}
+	// Objects and arrays: compact JSON reads better than Go's map syntax.
+	out, err := json.Marshal(v)
+	if err != nil {
+		return sanitizeTerminal(truncate(fmt.Sprintf("%v", v), 40))
+	}
+	return sanitizeTerminal(truncate(string(out), 40))
+}
+
+// truncate shortens s to at most n runes, appending "..." when cut.
+// Rune-based so multi-byte UTF-8 is never split.
+func truncate(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[:n-3]) + "..."
+}
+
+// sanitizeTerminal renders control characters as visible escapes (e.g. ESC
+// becomes \x1b) so server-supplied text cannot inject terminal escape
+// sequences. Tabs and newlines pass through where they are meaningful.
+func sanitizeTerminal(s string) string {
+	if !strings.ContainsFunc(s, isUnsafeRune) {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if isUnsafeRune(r) {
+			fmt.Fprintf(&b, "\\x%02x", r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func isUnsafeRune(r rune) bool {
+	return (r < 0x20 && r != '\t' && r != '\n') || r == 0x7f || (r >= 0x80 && r <= 0x9f)
+}
