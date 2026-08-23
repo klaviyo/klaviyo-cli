@@ -1,7 +1,9 @@
 # Dev tools are pinned and self-installed into ./bin so local runs and CI
 # use identical versions (only Go itself is required). Bump the version here;
 # CI runs the same targets.
-GOLANGCI_LINT_VERSION := v2.13.1
+# Note: keep compatible with the Go version in go.mod (CI sets
+# GOTOOLCHAIN=local, so it cannot auto-download a newer toolchain).
+GOLANGCI_LINT_VERSION := v2.12.2
 GOLANGCI_LINT := bin/golangci-lint-$(GOLANGCI_LINT_VERSION)
 
 .PHONY: build test lint fmt clean
