@@ -1,0 +1,19 @@
+CLI_PRODUCT_BOOTSTRAP_ISSUES.md
+  s_214f8003f5b670::t_e918d9ff4e8b06 1-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "506387848e765524ca1dec8edac3b9bc05ef29ba",
+  "prompts": {},
+  "sessions": {
+    "s_214f8003f5b670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5152feb8-68ce-489d-a299-0cad9327b36f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
