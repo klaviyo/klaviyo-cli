@@ -1,0 +1,61 @@
+go.mod
+  s_214f8003f5b670::t_e924ea082d24a3 1-18
+go.sum
+  s_214f8003f5b670::t_9c06e51cb4c0d4 1-32
+.github/workflows/ci.yml
+  s_214f8003f5b670::t_ea6e217701a3ec 1-51
+.github/workflows/release.yml
+  s_214f8003f5b670::t_ac675c163cc19e 1-26
+.gitignore
+  s_214f8003f5b670::t_bec57cae0964c4 1-4
+.golangci.yml
+  s_214f8003f5b670::t_81fdb14c83a250 1-24
+.goreleaser.yaml
+  s_214f8003f5b670::t_cc2bf7f9f70082 1-42
+ARCHITECTURE.md
+  s_214f8003f5b670::t_4768fe5dc58815 1-53
+LICENSE
+  s_214f8003f5b670::t_fb69bff3bd9dbc 1-21
+Makefile
+  s_214f8003f5b670::t_718a25e76cfb98 1-13
+README.md
+  s_214f8003f5b670::t_2cbecfe60dd76b 1-77
+cmd/klaviyo/main.go
+  s_214f8003f5b670::t_e562baf0f7b204 1-16
+internal/api/client.go
+  s_214f8003f5b670::t_2f0687dcdd16cc 1-158
+internal/api/client_test.go
+  s_214f8003f5b670::t_21a375dfcda19c 1-103
+internal/auth/keyring.go
+  s_214f8003f5b670::t_921c266ead4a8b 1-26
+internal/auth/keyring_test.go
+  s_214f8003f5b670::t_72932ed5d99fa2 1-28
+internal/cli/api.go
+  s_214f8003f5b670::t_67e47546dc53f1 1-108
+internal/cli/auth.go
+  s_214f8003f5b670::t_69ff498c94f9cd 1-266
+internal/cli/root.go
+  s_214f8003f5b670::t_4cea02374e048e 1-106
+internal/cli/version.go
+  s_214f8003f5b670::t_366a07130073bc 1-17
+internal/config/config.go
+  s_214f8003f5b670::t_17f099d4bfc03c 1-92
+internal/config/config_test.go
+  s_214f8003f5b670::t_356ea218aae73a 1-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "88168561ec21615c00e0ebb8d4de8395ab865f21",
+  "prompts": {},
+  "sessions": {
+    "s_214f8003f5b670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5152feb8-68ce-489d-a299-0cad9327b36f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
