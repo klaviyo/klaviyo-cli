@@ -1,0 +1,38 @@
+internal/config/config.go
+  s_214f8003f5b670::t_7158c79b26a3bd 4-6
+  s_214f8003f5b670::t_d927a7182ec018 17,23-24
+internal/cli/auth.go
+  s_214f8003f5b670::t_9886d3c296e6dc 80,82-84
+  s_214f8003f5b670::t_36f044dd4ce52d 128,136,138
+ARCHITECTURE.md
+  s_214f8003f5b670::t_1febb9d3fa8305 43
+  s_214f8003f5b670::t_b437b14e4ac8ac 53
+  s_214f8003f5b670::t_201abd2493e157 10,14,18
+  s_214f8003f5b670::t_95ef921d07c6ce 41
+  s_214f8003f5b670::t_14c24b120f3f03 51-52
+internal/cli/root.go
+  s_214f8003f5b670::t_72738640ba4dc3 88-89,92-93,95
+  s_214f8003f5b670::t_d3d5c4face478a 71-72
+internal/config/config_test.go
+  s_214f8003f5b670::t_74252009680408 46-48
+  s_214f8003f5b670::t_b5e9cfeaa84e34 25
+README.md
+  s_214f8003f5b670::t_a45f94def3bd37 18
+  s_214f8003f5b670::t_5c7000e712c669 45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "21464824e9f27bdc1fc5121a47ced818b6b47508",
+  "prompts": {},
+  "sessions": {
+    "s_214f8003f5b670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5152feb8-68ce-489d-a299-0cad9327b36f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
