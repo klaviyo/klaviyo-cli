@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -16,6 +17,9 @@ import (
 	"github.com/klaviyo/klaviyo-cli/internal/api"
 	"github.com/klaviyo/klaviyo-cli/internal/config"
 )
+
+// stdinIsTTY is stubbed in tests.
+var stdinIsTTY = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
 
 func newAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -37,7 +41,6 @@ type accountsResponse struct {
 	Data []struct {
 		ID         string `json:"id"`
 		Attributes struct {
-			TestAccount        bool `json:"test_account"`
 			ContactInformation struct {
 				OrganizationName string `json:"organization_name"`
 			} `json:"contact_information"`
@@ -57,7 +60,8 @@ func verifyKey(ctx context.Context, key string) (id, org string, err error) {
 		return "", "", errors.New("API key was rejected (401/403); check the key and its scopes")
 	}
 	if !resp.OK() {
-		return "", "", fmt.Errorf("unexpected response verifying key: HTTP %d: %s", resp.StatusCode, truncate(string(resp.Body), 200))
+		return "", "", fmt.Errorf("unexpected response verifying key: HTTP %d: %s",
+			resp.StatusCode, sanitizeTerminal(truncate(string(resp.Body), 200)))
 	}
 	var parsed accountsResponse
 	if err := json.Unmarshal(resp.Body, &parsed); err != nil {
@@ -83,14 +87,14 @@ The key is verified against the Klaviyo API before it is stored in the CLI
 config file (0600 permissions). The first account added becomes the default;
 use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			interactive := term.IsTerminal(int(os.Stdin.Fd()))
+			interactive := stdinIsTTY()
 
 			if name == "" {
 				if !interactive {
 					return errors.New("--account is required when not running interactively")
 				}
 				fmt.Fprint(cmd.OutOrStdout(), "Account name [default]: ")
-				line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+				line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
 				if err != nil {
 					return err
 				}
@@ -193,12 +197,7 @@ func newAuthListCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "No accounts configured; run `klaviyo auth login`")
 				return nil
 			}
-			names := make([]string, 0, len(cfg.Accounts))
-			for name := range cfg.Accounts {
-				names = append(names, name)
-			}
-			sort.Strings(names)
-			for _, name := range names {
+			for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
 				acct := cfg.Accounts[name]
 				marker := " "
 				if name == cfg.DefaultAccount {
@@ -253,11 +252,4 @@ func newAuthStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "..."
 }

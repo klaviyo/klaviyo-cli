@@ -5,11 +5,14 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/klaviyo/klaviyo-cli/internal/api"
 )
 
 // queryParamSpec pairs an API query parameter name (e.g. "page[size]") with
@@ -52,12 +55,7 @@ func addResourceCmds(root *cobra.Command) {
 		}
 		parent.AddCommand(newResourceOpCmd(op))
 	}
-	names := make([]string, 0, len(groups))
-	for name := range groups {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(groups)) {
 		root.AddCommand(groups[name])
 	}
 }
@@ -113,7 +111,7 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return printResponse(cmd, resp.Body, resp.StatusCode)
+		return printResponse(cmd, resp)
 	}
 	return cmd
 }
@@ -130,13 +128,14 @@ func resolvePath(path string, params, args []string) string {
 // "data" array into a single {"data": [...]} document.
 func runPaginated(cmd *cobra.Command, client apiDoer, path string, query url.Values) error {
 	var merged []json.RawMessage
+	nextLink := ""
 	for page := 0; page < maxPages; page++ {
 		resp, err := client.Do(cmd.Context(), "GET", path, query, nil)
 		if err != nil {
 			return err
 		}
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return printResponse(cmd, resp.Body, resp.StatusCode)
+		if !resp.OK() {
+			return printResponse(cmd, resp)
 		}
 		var parsed struct {
 			Data  []json.RawMessage `json:"data"`
@@ -148,22 +147,29 @@ func runPaginated(cmd *cobra.Command, client apiDoer, path string, query url.Val
 			return fmt.Errorf("parsing page %d: %w", page+1, err)
 		}
 		merged = append(merged, parsed.Data...)
-		if parsed.Links.Next == "" {
+		nextLink = parsed.Links.Next
+		if nextLink == "" {
 			break
 		}
-		next, err := url.Parse(parsed.Links.Next)
+		next, err := url.Parse(nextLink)
 		if err != nil {
 			return fmt.Errorf("parsing next link: %w", err)
 		}
+		// Deliberately keep only path+query from the server-supplied next
+		// link, never its scheme or host: following a full URL would let a
+		// hostile response walk the Authorization header to another server.
 		path = next.Path
 		query, err = url.ParseQuery(next.RawQuery)
 		if err != nil {
 			return fmt.Errorf("parsing next link query: %w", err)
 		}
 	}
+	if nextLink != "" {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: stopped after %d pages with more results remaining\n", maxPages)
+	}
 	out, err := json.Marshal(map[string]any{"data": merged})
 	if err != nil {
 		return err
 	}
-	return printResponse(cmd, out, 200)
+	return printResponse(cmd, &api.Response{StatusCode: 200, Body: out})
 }

@@ -157,8 +157,19 @@ func commandName(group, opID string) string {
 var (
 	wsRe          = regexp.MustCompile(`\s+`)
 	brRe          = regexp.MustCompile(`<br\s*/?>`)
-	boilerplateRe = regexp.MustCompile(`For more information please visit \S+`)
+	boilerplateRe = regexp.MustCompile(`For more information please visit \S+#(\S+)`)
+	ctrlRe        = regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]`)
 )
+
+// anchorHelp replaces descriptions that are nothing but a docs link with real
+// help text, keyed on the link anchor. Covers the four boilerplate-only
+// parameter families in the spec (~450 flags).
+var anchorHelp = map[string]string{
+	"sparse-fieldsets": "comma-separated attribute names to include in the response",
+	"relationships":    "comma-separated related resources to include in the response",
+	"pagination":       "pagination cursor from a previous response's links.next",
+	"sorting":          "field to sort by; prefix with - for descending (e.g. -created)",
+}
 
 // flagHelp builds one-line flag help from the spec parameter description,
 // falling back to the raw query parameter name. The boilerplate docs-link
@@ -166,8 +177,15 @@ var (
 // truncation keeps the useful part (e.g. the list of filterable fields).
 func flagHelp(p param) string {
 	desc := brRe.ReplaceAllString(p.Description, " ")
+	// Control characters in spec text must never reach --help output.
+	desc = ctrlRe.ReplaceAllString(desc, " ")
 	if trimmed := strings.TrimSpace(boilerplateRe.ReplaceAllString(desc, "")); trimmed != "" {
 		desc = trimmed
+	} else if m := boilerplateRe.FindStringSubmatch(desc); m != nil {
+		// Description is nothing but the docs link: substitute real help.
+		if help, ok := anchorHelp[strings.TrimRight(m[1], ".")]; ok {
+			desc = help
+		}
 	}
 	// Backticks would be parsed by Cobra as the flag's value placeholder.
 	desc = strings.ReplaceAll(desc, "`", "'")
@@ -206,14 +224,12 @@ func renderCmds(version string, ops []genOp) []byte {
 			fmt.Fprintf(&b, ", PathParams: %#v", op.pathParams)
 		}
 		if len(op.queryParams) > 0 {
-			b.WriteString(", Query: []queryParamSpec{")
-			for i, q := range op.queryParams {
-				if i > 0 {
-					b.WriteString(", ")
-				}
-				fmt.Fprintf(&b, "{%q, %q, %q}", q.Name, flagName(q.Name), flagHelp(q))
+			// One param per line keeps spec-sync diffs reviewable.
+			b.WriteString(", Query: []queryParamSpec{\n")
+			for _, q := range op.queryParams {
+				fmt.Fprintf(&b, "\t\t{%q, %q, %q},\n", q.Name, flagName(q.Name), flagHelp(q))
 			}
-			b.WriteString("}")
+			b.WriteString("\t}")
 		}
 		if op.hasBody {
 			b.WriteString(", HasBody: true")

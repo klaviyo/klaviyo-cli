@@ -2,11 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/klaviyo/klaviyo-cli/internal/api"
 	"github.com/klaviyo/klaviyo-cli/internal/config"
 )
 
@@ -117,20 +119,72 @@ func TestRenderTablePrefersKnownColumns(t *testing.T) {
 	}
 }
 
-func TestPrintResponsePipedStaysJSON(t *testing.T) {
-	old := stdoutIsTTY
-	stdoutIsTTY = func() bool { return true }
-	defer func() { stdoutIsTTY = old }()
+func stubTable(t *testing.T, render bool) {
+	t.Helper()
+	old := shouldRenderTable
+	shouldRenderTable = func(io.Writer) bool { return render }
+	t.Cleanup(func() { shouldRenderTable = old })
+}
 
-	// Even with a TTY, a non-os.Stdout writer (as in scripts capturing
-	// output) must produce JSON, not a table.
+func TestPrintResponseNonTerminalStaysJSON(t *testing.T) {
+	stubTable(t, false)
 	out := &bytes.Buffer{}
 	cmd := &cobra.Command{}
 	cmd.SetOut(out)
-	if err := printResponse(cmd, []byte(`{"data":[{"id":"1","attributes":{"name":"x"}}]}`), 200); err != nil {
+	resp := &api.Response{StatusCode: 200, Body: []byte(`{"data":[{"id":"1","attributes":{"name":"x"}}]}`)}
+	if err := printResponse(cmd, resp); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"data"`) {
 		t.Errorf("expected JSON output, got:\n%s", out.String())
+	}
+}
+
+func TestPrintResponseRendersTableOnTerminal(t *testing.T) {
+	stubTable(t, true)
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	resp := &api.Response{StatusCode: 200, Body: []byte(`{"data":[{"id":"1","attributes":{"name":"Newsletter"}}]}`)}
+	if err := printResponse(cmd, resp); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "ID") || !strings.Contains(out.String(), "Newsletter") {
+		t.Errorf("expected table output, got:\n%s", out.String())
+	}
+	if strings.Contains(out.String(), `"data"`) {
+		t.Errorf("table output should not be JSON:\n%s", out.String())
+	}
+}
+
+func TestPrintResponseSingleResourceStaysJSON(t *testing.T) {
+	stubTable(t, true)
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	resp := &api.Response{StatusCode: 200, Body: []byte(`{"data":{"id":"1","attributes":{"name":"x"}}}`)}
+	if err := printResponse(cmd, resp); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"data"`) {
+		t.Errorf("single resource should print as JSON:\n%s", out.String())
+	}
+}
+
+func TestPrintResponseJQSkippedOnError(t *testing.T) {
+	stubTable(t, false)
+	opts.jq = ".data"
+	t.Cleanup(func() { opts.jq = "" })
+
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	resp := &api.Response{StatusCode: 404, Body: []byte(`{"errors":[{"detail":"not found"}]}`)}
+	err := printResponse(cmd, resp)
+	if err == nil || err.Error() != "HTTP 404" {
+		t.Fatalf("err = %v, want HTTP 404", err)
+	}
+	if !strings.Contains(out.String(), "not found") {
+		t.Errorf("error body must be printed raw, not jq-filtered:\n%s", out.String())
 	}
 }

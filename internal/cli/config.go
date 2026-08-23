@@ -12,10 +12,6 @@ import (
 	"github.com/klaviyo/klaviyo-cli/internal/config"
 )
 
-// settableKeys whitelists config keys manageable via `config --set/--unset`.
-// Account profiles themselves are managed by `auth` commands.
-var settableKeys = map[string]bool{"default_account": true}
-
 func newConfigCmd() *cobra.Command {
 	var list, edit bool
 	var setKey, unsetKey bool
@@ -83,18 +79,18 @@ func runConfigList(cmd *cobra.Command) error {
 }
 
 func runConfigSet(cmd *cobra.Command, key, value string) error {
-	if !settableKeys[key] {
-		return fmt.Errorf("unknown config key %q (settable: default_account); accounts are managed with `klaviyo auth`", key)
-	}
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
-	if key == "default_account" {
+	switch key {
+	case "default_account":
 		if _, ok := cfg.Accounts[value]; value != "" && !ok {
 			return fmt.Errorf("unknown account %q; run `klaviyo auth list`", value)
 		}
 		cfg.DefaultAccount = value
+	default:
+		return fmt.Errorf("unknown config key %q (settable: default_account); accounts are managed with `klaviyo auth`", key)
 	}
 	if err := cfg.Save(); err != nil {
 		return err
@@ -121,5 +117,9 @@ func runConfigEdit(cmd *cobra.Command) error {
 	}
 	edit := exec.Command(editor, path)
 	edit.Stdin, edit.Stdout, edit.Stderr = os.Stdin, cmd.OutOrStdout(), cmd.ErrOrStderr()
-	return edit.Run()
+	err = edit.Run()
+	// Editors may recreate the file under the process umask; re-assert the
+	// restrictive mode since the config holds API keys.
+	_ = os.Chmod(path, 0o600)
+	return err
 }

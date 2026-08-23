@@ -34,7 +34,9 @@ Key resolution precedence (`internal/cli/root.go`):
 - Base URL `https://a.klaviyo.com`; paths are passed through verbatim.
 - Sends `Authorization: Klaviyo-API-Key ...`, `revision`, `Accept`/`Content-Type: application/vnd.api+json`.
 - Pins `DefaultRevision` (currently `2026-07-15`); override per invocation with `--revision`.
-- Retries: 429 always (honoring `Retry-After`), 5xx only for GET/HEAD, max 4 attempts with exponential backoff.
+- Retries: 429 always (honoring `Retry-After`, capped at 60s, context-aware), 5xx only for GET/HEAD, max 4 attempts with exponential backoff.
+- `KLAVIYO_API_URL` overrides the base URL for development and tests only; unsupported for normal use.
+- Server-supplied text rendered to a terminal (tables, `--jq` strings, non-JSON bodies) is sanitized against escape-sequence injection; piped output stays byte-faithful.
 - Non-2xx responses are returned to the caller (not turned into Go errors) so commands can render the API's JSON:API error body.
 
 ## Generated resource commands

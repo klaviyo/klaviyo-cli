@@ -2,9 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"os/exec"
 	"runtime"
-	"sort"
+	"slices"
 
 	"github.com/spf13/cobra"
 )
@@ -80,10 +81,5 @@ Examples:
 }
 
 func sortedShortcuts() []string {
-	names := make([]string, 0, len(openShortcuts))
-	for name := range openShortcuts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(openShortcuts))
 }

@@ -74,7 +74,11 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// Save writes the config with restrictive permissions (0700 dir, 0600 file).
+// Save writes the config with restrictive permissions (0700 dir, 0600 file),
+// enforced even when the directory or file already exists with looser modes
+// (os.MkdirAll and os.WriteFile only apply modes at creation). The write is
+// atomic — exclusive temp file then rename — so an interrupt cannot leave a
+// truncated config, and a symlinked config.toml is never written through.
 func (c *Config) Save() error {
 	dir, err := Dir()
 	if err != nil {
@@ -83,12 +87,33 @@ func (c *Config) Save() error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return fmt.Errorf("securing %s: %w", dir, err)
+	}
 	data, err := toml.Marshal(c)
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(dir, "config.toml")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	path, err := Path()
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", tmp, err)
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("writing %s: %w", tmp, err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	return nil

@@ -2,7 +2,8 @@ name: Sync OpenAPI spec
 
 # Fetches the latest published Klaviyo OpenAPI spec, regenerates the resource
 # commands, and opens a PR when anything changed. Modeled on the Stripe CLI's
-# sync-openapi-artifacts workflow.
+# sync-openapi-artifacts workflow. The PR is the review gate for remote spec
+# content entering the tree.
 
 on:
   schedule:
@@ -10,15 +11,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Fetch latest stable spec
@@ -27,9 +32,14 @@ jobs:
         run: go generate ./...
       - name: Read spec revision
         id: revision
-        run: echo "revision=$(python3 -c "import json; print(json.load(open('api/openapi/stable.json'))['info']['version'])")" >> "$GITHUB_OUTPUT"
+        # Validate the shape before it reaches GITHUB_OUTPUT: the value comes
+        # from remote content, and an embedded newline could inject extra
+        # outputs.
+        run: |
+          rev=$(python3 -c "import json,re,sys; v=json.load(open('api/openapi/stable.json'))['info']['version']; sys.exit('unexpected revision format: %r' % v) if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', v) else print(v)")
+          echo "revision=$rev" >> "$GITHUB_OUTPUT"
       - name: Open PR if changed
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
         with:
           branch: bot/sync-openapi
           title: "Sync OpenAPI spec to revision ${{ steps.revision.outputs.revision }}"

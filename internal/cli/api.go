@@ -13,6 +13,7 @@ import (
 func newAPICmd() *cobra.Command {
 	var data string
 	var queries []string
+	var paginate bool
 
 	cmd := &cobra.Command{
 		Use:   "api [method] <path>",
@@ -45,15 +46,22 @@ Examples:
 			if err != nil {
 				return err
 			}
+			if paginate {
+				if method != "GET" {
+					return fmt.Errorf("--paginate requires a GET request, got %s", method)
+				}
+				return runPaginated(cmd, client, path, query)
+			}
 			resp, err := client.Do(cmd.Context(), method, path, query, body)
 			if err != nil {
 				return err
 			}
-			return printResponse(cmd, resp.Body, resp.StatusCode)
+			return printResponse(cmd, resp)
 		},
 	}
 	cmd.Flags().StringVarP(&data, "data", "d", "", "request body: inline JSON, @file, or '-' for stdin")
 	cmd.Flags().StringArrayVarP(&queries, "query", "q", nil, "query parameter as key=value (repeatable)")
+	cmd.Flags().BoolVar(&paginate, "paginate", false, "follow cursor pagination and merge all pages' data (GET only)")
 	return cmd
 }
 

@@ -4,7 +4,9 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -62,7 +64,9 @@ Get started:
 	pf.StringVar(&opts.revision, "revision", "", "API revision header (default "+api.DefaultRevision+")")
 	pf.StringVar(&opts.jq, "jq", "", "filter the JSON response through a jq expression (built in, no jq install needed)")
 
-	cobra.CheckErr(root.RegisterFlagCompletionFunc("account", completeAccountNames))
+	// Only errors on a programmer mistake (unknown flag name); never exit
+	// from a constructor.
+	_ = root.RegisterFlagCompletionFunc("account", completeAccountNames)
 
 	root.AddCommand(newAuthCmd(), newAPICmd(), newConfigCmd(), newOpenCmd(), newVersionCmd())
 	addResourceCmds(root)
@@ -76,8 +80,8 @@ func completeAccountNames(_ *cobra.Command, _ []string, _ string) ([]string, cob
 		return nil, cobra.ShellCompDirectiveError
 	}
 	names := make([]string, 0, len(cfg.Accounts))
-	for name, acct := range cfg.Accounts {
-		names = append(names, fmt.Sprintf("%s\t%s", name, acct.Organization))
+	for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
+		names = append(names, fmt.Sprintf("%s\t%s", name, cfg.Accounts[name].Organization))
 	}
 	return names, cobra.ShellCompDirectiveNoFileComp
 }

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +21,19 @@ import (
 const (
 	defaultBaseURL = "https://a.klaviyo.com"
 	maxAttempts    = 4
+	// maxRetryDelay caps Retry-After so a hostile or broken proxy cannot
+	// hang the CLI with an arbitrarily large value.
+	maxRetryDelay = 60 * time.Second
 )
+
+// baseURL honors KLAVIYO_API_URL, a development/testing override (used by
+// tests to point at a local server). Unset in normal use.
+func baseURL() string {
+	if u := os.Getenv("KLAVIYO_API_URL"); u != "" {
+		return u
+	}
+	return defaultBaseURL
+}
 
 // Client is an authenticated Klaviyo API client bound to one account's key.
 type Client struct {
@@ -30,7 +43,8 @@ type Client struct {
 	apiKey    string
 	userAgent string
 	http      *http.Client
-	// sleep is stubbed in tests to avoid real backoff waits.
+	// sleep is stubbed in tests to avoid real backoff waits; when nil,
+	// wait() uses a context-aware timer.
 	sleep func(time.Duration)
 }
 
@@ -41,12 +55,11 @@ func NewClient(apiKey, revision, cliVersion string) *Client {
 		revision = DefaultRevision
 	}
 	return &Client{
-		BaseURL:   defaultBaseURL,
+		BaseURL:   baseURL(),
 		Revision:  revision,
 		apiKey:    apiKey,
 		userAgent: "klaviyo-cli/" + cliVersion,
 		http:      &http.Client{Timeout: 60 * time.Second},
-		sleep:     time.Sleep,
 	}
 }
 
@@ -81,7 +94,25 @@ func (c *Client) Do(ctx context.Context, method, path string, query url.Values, 
 		if attempt >= maxAttempts || !c.shouldRetry(method, resp.StatusCode) {
 			return resp, nil
 		}
-		c.sleep(retryDelay(resp, attempt))
+		if err := c.wait(ctx, retryDelay(resp, attempt)); err != nil {
+			return nil, err
+		}
+	}
+}
+
+// wait sleeps for d or until ctx is canceled, whichever comes first.
+func (c *Client) wait(ctx context.Context, d time.Duration) error {
+	if c.sleep != nil {
+		c.sleep(d)
+		return ctx.Err()
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 
@@ -148,7 +179,7 @@ func (c *Client) shouldRetry(method string, status int) bool {
 func retryDelay(resp *Response, attempt int) time.Duration {
 	if s := resp.Header.Get("Retry-After"); s != "" {
 		if secs, err := strconv.Atoi(s); err == nil && secs >= 0 {
-			return time.Duration(secs) * time.Second
+			return min(time.Duration(secs)*time.Second, maxRetryDelay)
 		}
 	}
 	// Exponential backoff: 1s, 2s, 4s.

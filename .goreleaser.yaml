@@ -2,9 +2,8 @@ version: 2
 
 project_name: klaviyo-cli
 
-before:
-  hooks:
-    - go mod tidy
+# No `go mod tidy` hook: releases must build the exact dependency set CI
+# tested (CI enforces a tidy go.mod).
 
 builds:
   - id: klaviyo

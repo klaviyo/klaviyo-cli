@@ -82,8 +82,14 @@ func canonical(v string) string {
 }
 
 func fetchLatestVersion() (string, error) {
+	req, err := http.NewRequest(http.MethodGet, releaseURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "klaviyo-cli/"+version)
+	req.Header.Set("Accept", "application/vnd.github+json")
 	client := &http.Client{Timeout: 1500 * time.Millisecond}
-	resp, err := client.Get(releaseURL)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -96,6 +102,13 @@ func fetchLatestVersion() (string, error) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return "", err
+	}
+	// The tag is remote data printed to a terminal. A valid semver cannot
+	// carry control characters, so this check doubles as escape-injection
+	// protection for the stderr notice — keep it even if comparison logic
+	// changes.
+	if !semver.IsValid(canonical(release.TagName)) {
+		return "", fmt.Errorf("malformed release tag %q", canonical(release.TagName))
 	}
 	return release.TagName, nil
 }
