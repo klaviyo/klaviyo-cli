@@ -1,0 +1,21 @@
+.github/workflows/ci.yml
+  s_214f8003f5b670::t_6ac19ec201de14 16-17,32-33,42,45
+.github/workflows/release.yml
+  s_214f8003f5b670::t_a5b8b10509fd9b 15,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "33963d161d7551093d3df484681c8b318f5f55cc",
+  "prompts": {},
+  "sessions": {
+    "s_214f8003f5b670": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5152feb8-68ce-489d-a299-0cad9327b36f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
