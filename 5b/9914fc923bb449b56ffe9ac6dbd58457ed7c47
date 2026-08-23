@@ -1,0 +1,25 @@
+README.md
+  s_15af7b0b09c9b1::t_c8d93ad90be1f2 3-10,14-24,26,29,32-37,47,63,65-80,83-88,90-93,95,97,99,107,111,113-115,117,119-145,149,152-156,160,163
+  s_15af7b0b09c9b1::t_f94e8150be43df 159
+  s_15af7b0b09c9b1::t_dd8c36b366db83 164
+ARCHITECTURE.md
+  s_15af7b0b09c9b1::t_5543c54653538e 26
+  s_15af7b0b09c9b1::t_b2f661e08e9ba4 78-82
+  s_15af7b0b09c9b1::t_d079b645a42978 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "5b9914fc923bb449b56ffe9ac6dbd58457ed7c47",
+  "prompts": {},
+  "sessions": {
+    "s_15af7b0b09c9b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95442eb7-d34e-47e8-a17c-56e34eeb320d",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andrew Bialecki <andrew.bialecki@gmail.com>"
+    }
+  }
+}
