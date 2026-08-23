@@ -6,10 +6,13 @@
 GOLANGCI_LINT_VERSION := v2.12.2
 GOLANGCI_LINT := bin/golangci-lint-$(GOLANGCI_LINT_VERSION)
 
-.PHONY: build test lint fmt clean
+.PHONY: build generate test lint fmt clean
 
 build:
 	go build -o bin/klaviyo ./cmd/klaviyo
+
+generate:
+	go generate ./...
 
 test:
 	go test -race ./...

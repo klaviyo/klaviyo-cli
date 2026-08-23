@@ -21,9 +21,16 @@ klaviyo auth login
 # Confirm credentials
 klaviyo auth status
 
-# Call any API endpoint
+# Typed commands for every API operation (345 across 23 groups,
+# generated from the OpenAPI spec)
+klaviyo metrics list
+klaviyo profiles list --filter 'equals(email,"someone@example.com")'
+klaviyo profiles get 01ABC123 --fields-profile email,first_name
+klaviyo lists list --paginate          # follow cursors, merge all pages
+klaviyo events create -d @event.json
+
+# Or call any endpoint raw
 klaviyo api /api/metrics/
-klaviyo api /api/profiles/ -q 'filter=equals(email,"someone@example.com")'
 klaviyo api POST /api/events/ -d @event.json
 ```
 

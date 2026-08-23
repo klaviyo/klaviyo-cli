@@ -33,10 +33,11 @@ work offline; generated commands get reviewed in a PR before shipping; and the
 `api` command + `--revision` already covers brand-new endpoints between
 releases.
 
-- [ ] Vendor `openapi/stable.json` into the repo (pin the exact revision the build was generated from)
-- [ ] Generator (`internal/gen`, `//go:build ignore`): spec → generated command specs + `DefaultRevision` const
-- [ ] Generic executor: one `OperationCmd` that runs any generated spec (path params, query flags, body building, pagination)
-- [ ] `sync-openapi.yml` workflow: scheduled + manual; fetch klaviyo/openapi, regenerate, open PR when changed
+- [x] Vendor `openapi/stable.json` into the repo (pin the exact revision the build was generated from)
+- [x] Generator (`internal/gen`): spec → `internal/cli/resources_gen.go` + generated `DefaultRevision`
+- [x] Generic executor: builds all 345 commands from generated specs (path params positional, query params as flags, `-d` body, `--paginate` merges cursor pages)
+- [x] CI guard: `go generate` + `git diff --exit-code` so generated code can't drift from the vendored spec
+- [x] `sync-openapi.yml` workflow: weekday schedule + manual; fetch klaviyo/openapi, regenerate, open PR when changed
 - [ ] Release checklist: merged sync PR → tag → GoReleaser
 
 ## Command map (spec revision 2026-07-15: 345 operations, 23 tags)
@@ -83,7 +84,7 @@ Assumed in scope (per review 2026-08-23). Ordered roughly by dependency.
 
 - [x] Multi-account/profile auth with switch (`gh auth switch` / stripe `--project-name` + `switch`)
 - [x] Raw API access (`gh api` / stripe `get|post|delete`)
-- [ ] Typed resource commands (stripe: generated; gh: hand-written — we generate, see above)
+- [x] Typed resource commands (stripe: generated; gh: hand-written — we generate, see above). v1 note: bodies are raw `-d` JSON, not typed per-field flags like Stripe generates; open decisions on relationship/`client` command curation below still stand (all currently exposed uniformly)
 - [ ] Shell completions (`completion` for bash/zsh/fish/powershell — near-free with Cobra)
 - [ ] `config` command (get/set/list; open in editor)
 - [ ] Machine-readable output: `--paginate`, `--jq` (embed gojq like gh — no external jq dependency), TTY-aware table vs JSON output

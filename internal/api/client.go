@@ -15,11 +15,9 @@ import (
 	"time"
 )
 
+// DefaultRevision (see revision_gen.go) is generated from the vendored
+// OpenAPI spec; override per request with --revision.
 const (
-	// DefaultRevision is the Klaviyo API revision the CLI pins by default.
-	// Override per request with --revision.
-	DefaultRevision = "2026-07-15"
-
 	defaultBaseURL = "https://a.klaviyo.com"
 	maxAttempts    = 4
 )

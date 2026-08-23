@@ -19,6 +19,11 @@ jobs:
           go-version-file: go.mod
       # Runs the same pinned golangci-lint the Makefile installs locally.
       - run: make lint
+      # Generated code must match the vendored spec.
+      - name: Check generated code is current
+        run: |
+          go generate ./...
+          git diff --exit-code -- '*.go'
 
   test:
     name: Test (${{ matrix.os }})

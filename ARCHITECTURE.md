@@ -9,6 +9,8 @@ cmd/klaviyo            entrypoint (main.go only; all logic lives in internal/)
 internal/cli           Cobra command tree; flag parsing, output rendering
 internal/config        config.toml read/write (account profiles, default account)
 internal/api           HTTP client: auth header, revision header, retries
+internal/gen           code generator: OpenAPI spec -> resource commands
+api/openapi            vendored Klaviyo OpenAPI spec (source of generated code)
 ```
 
 Dependency direction: `cli → {config, api}`. The leaf packages do not import each other or `cli`.
@@ -34,6 +36,32 @@ Key resolution precedence (`internal/cli/root.go`):
 - Pins `DefaultRevision` (currently `2026-07-15`); override per invocation with `--revision`.
 - Retries: 429 always (honoring `Retry-After`), 5xx only for GET/HEAD, max 4 attempts with exponential backoff.
 - Non-2xx responses are returned to the caller (not turned into Go errors) so commands can render the API's JSON:API error body.
+
+## Generated resource commands
+
+Every operation in the vendored spec (345 across 23 tags at revision
+2026-07-15) becomes a command, following the Stripe CLI's build-time-codegen
+model. `go generate ./...` runs `internal/gen`, which emits:
+
+- `internal/cli/resources_gen.go` — a data table of `opSpec` entries (group,
+  name, method, path, params); a generic executor in `resources.go` turns each
+  into a Cobra command at startup.
+- `internal/api/revision_gen.go` — `DefaultRevision`, pinned to the spec.
+
+Naming is rule-based: tag → group (`Custom Objects` → `custom-objects`);
+canonical CRUD on the group's primary resource collapses to `list`/`get`/
+`create`/`update`/`delete`; every other operationId is kebab-cased verbatim
+(`get_lists_for_profile` → `profiles get-lists-for-profile`). Path params are
+positional args; query params become flags (`page[size]` → `--page-size`);
+request bodies use `-d` (inline JSON, `@file`, or stdin); list endpoints get
+`--paginate`, which follows `links.next` cursors and merges every page's
+`data` array.
+
+Freshness: CI fails if `go generate` would change anything (spec/code drift),
+and the `sync-openapi.yml` workflow (weekday schedule + manual) pulls the
+latest spec from klaviyo/openapi, regenerates, and opens a PR; merging and
+tagging ships the new commands. The `api` command plus `--revision` covers
+endpoints newer than the last release.
 
 ## Design decisions
 

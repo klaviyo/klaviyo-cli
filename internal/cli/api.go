@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -51,19 +49,7 @@ Examples:
 			if err != nil {
 				return err
 			}
-
-			out := resp.Body
-			var pretty bytes.Buffer
-			if json.Indent(&pretty, resp.Body, "", "  ") == nil {
-				out = pretty.Bytes()
-			}
-			if len(out) > 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), string(out))
-			}
-			if !resp.OK() {
-				return fmt.Errorf("HTTP %d", resp.StatusCode)
-			}
-			return nil
+			return printResponse(cmd, resp.Body, resp.StatusCode)
 		},
 	}
 	cmd.Flags().StringVarP(&data, "data", "d", "", "request body: inline JSON, @file, or '-' for stdin")

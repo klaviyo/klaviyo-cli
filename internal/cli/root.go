@@ -52,6 +52,7 @@ Get started:
 	pf.StringVar(&opts.revision, "revision", "", "API revision header (default "+api.DefaultRevision+")")
 
 	root.AddCommand(newAuthCmd(), newAPICmd(), newVersionCmd())
+	addResourceCmds(root)
 	return root
 }
 

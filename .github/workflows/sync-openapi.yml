@@ -1,0 +1,40 @@
+name: Sync OpenAPI spec
+
+# Fetches the latest published Klaviyo OpenAPI spec, regenerates the resource
+# commands, and opens a PR when anything changed. Modeled on the Stripe CLI's
+# sync-openapi-artifacts workflow.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1-5" # weekday mornings UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Fetch latest stable spec
+        run: curl -fsSL https://raw.githubusercontent.com/klaviyo/openapi/main/openapi/stable.json -o api/openapi/stable.json
+      - name: Regenerate commands
+        run: go generate ./...
+      - name: Read spec revision
+        id: revision
+        run: echo "revision=$(python3 -c "import json; print(json.load(open('api/openapi/stable.json'))['info']['version'])")" >> "$GITHUB_OUTPUT"
+      - name: Open PR if changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: bot/sync-openapi
+          title: "Sync OpenAPI spec to revision ${{ steps.revision.outputs.revision }}"
+          commit-message: "Sync OpenAPI spec to revision ${{ steps.revision.outputs.revision }}"
+          body: |
+            Automated spec sync from [klaviyo/openapi](https://github.com/klaviyo/openapi).
+
+            Review the regenerated commands, then merge and tag a release to ship them.
