@@ -110,6 +110,20 @@ func TestResourceCmdSendsBody(t *testing.T) {
 	}
 }
 
+func TestResourceCmdBuildsBodyFromFieldPairs(t *testing.T) {
+	rec := apiServer(t, 200, `{}`)
+	op := &opSpec{Group: "widgets", Name: "create", Method: "POST", Path: "/api/widgets", HasBody: true}
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs([]string{"-d", "data.type=widget", "-d", "data.attributes.size:=3"})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if rec.body != `{"data":{"attributes":{"size":3},"type":"widget"}}` {
+		t.Errorf("body = %q", rec.body)
+	}
+}
+
 func TestRunPaginatedMergesPages(t *testing.T) {
 	doer := &fakeDoer{pages: []string{
 		`{"data":[{"id":"1"}],"links":{"next":"https://a.klaviyo.com/api/profiles?page%5Bcursor%5D=abc"}}`,
