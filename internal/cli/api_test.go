@@ -58,6 +58,17 @@ func TestAPICommandUppercasesMethodAndSendsBody(t *testing.T) {
 	}
 }
 
+func TestAPICommandBuildsBodyFromFieldPairs(t *testing.T) {
+	rec := apiServer(t, 200, `{}`)
+	if _, err := runCommand(t, "api", "post", "/api/lists/",
+		"-d", "data.type=list", "-d", "data.attributes.name=Newsletter"); err != nil {
+		t.Fatal(err)
+	}
+	if rec.body != `{"data":{"attributes":{"name":"Newsletter"},"type":"list"}}` {
+		t.Errorf("body = %q", rec.body)
+	}
+}
+
 func TestAPICommandSendsQueryParams(t *testing.T) {
 	rec := apiServer(t, 200, `{}`)
 	if _, err := runCommand(t, "api", "/api/profiles/", "-q", `filter=equals(email,"a@b.com")`); err != nil {
@@ -87,10 +98,10 @@ func TestAPICommandPaginateRejectsNonGET(t *testing.T) {
 }
 
 func TestReadBody(t *testing.T) {
-	if body, err := readBody(""); err != nil || body != nil {
+	if body, err := readBody(nil); err != nil || body != nil {
 		t.Errorf("empty: %v %q", err, body)
 	}
-	if body, err := readBody(`{"x":1}`); err != nil || string(body) != `{"x":1}` {
+	if body, err := readBody([]string{`{"x":1}`}); err != nil || string(body) != `{"x":1}` {
 		t.Errorf("inline: %v %q", err, body)
 	}
 
@@ -98,10 +109,10 @@ func TestReadBody(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"f":2}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if body, err := readBody("@" + path); err != nil || string(body) != `{"f":2}` {
+	if body, err := readBody([]string{"@" + path}); err != nil || string(body) != `{"f":2}` {
 		t.Errorf("file: %v %q", err, body)
 	}
-	if _, err := readBody("@" + path + ".missing"); err == nil || !strings.Contains(err.Error(), "reading body file") {
+	if _, err := readBody([]string{"@" + path + ".missing"}); err == nil || !strings.Contains(err.Error(), "reading body file") {
 		t.Errorf("missing file err = %v", err)
 	}
 
@@ -116,8 +127,75 @@ func TestReadBody(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = w.Close()
-	if body, err := readBody("-"); err != nil || string(body) != `{"s":3}` {
+	if body, err := readBody([]string{"-"}); err != nil || string(body) != `{"s":3}` {
 		t.Errorf("stdin: %v %q", err, body)
+	}
+}
+
+func TestBuildBodyDotNotation(t *testing.T) {
+	body, err := readBody([]string{
+		"data.type=list",
+		"data.attributes.name=Newsletter",
+		`data.attributes.tags:=["a","b"]`,
+		"data.attributes.count:=2",
+		"data.attributes.active:=true",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"data":{"attributes":{"active":true,"count":2,"name":"Newsletter","tags":["a","b"]},"type":"list"}}`
+	if string(body) != want {
+		t.Errorf("body = %s, want %s", body, want)
+	}
+}
+
+func TestBuildBodyStringValuesStayStrings(t *testing.T) {
+	body, err := readBody([]string{"data.attributes.zip=01234", "data.attributes.flag=true"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"data":{"attributes":{"flag":"true","zip":"01234"}}}`
+	if string(body) != want {
+		t.Errorf("body = %s, want %s", body, want)
+	}
+}
+
+func TestBuildBodyValueMayContainEquals(t *testing.T) {
+	body, err := readBody([]string{"data.attributes.query=a=b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"data":{"attributes":{"query":"a=b"}}}`; string(body) != want {
+		t.Errorf("body = %s, want %s", body, want)
+	}
+}
+
+func TestBuildBodyJSONValueEscapesDottedKeys(t *testing.T) {
+	body, err := readBody([]string{`data.attributes.properties:={"my.key":1}`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"data":{"attributes":{"properties":{"my.key":1}}}}`; string(body) != want {
+		t.Errorf("body = %s, want %s", body, want)
+	}
+}
+
+func TestBuildBodyErrors(t *testing.T) {
+	cases := map[string][]string{
+		"no equals":            {"data.type"},
+		"empty path":           {"=x"},
+		"bare colon path":      {":=1"},
+		"empty segment":        {"data..type=x"},
+		"invalid json value":   {"data.count:=notjson"},
+		"duplicate field":      {"data.type=a", "data.type=b"},
+		"value under value":    {"data.type=a", "data.type.sub=b"},
+		"object over value":    {"data.type.sub=b", "data.type=a"},
+		"pair after full body": {`{"x":1}`, "data.type=a"},
+	}
+	for name, pairs := range cases {
+		if _, err := readBody(pairs); err == nil {
+			t.Errorf("%s: readBody(%q) should error", name, pairs)
+		}
 	}
 }
 

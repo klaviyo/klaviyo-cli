@@ -78,9 +78,9 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 	for i, q := range op.Query {
 		queryFlags[i] = cmd.Flags().String(q.Flag, "", q.Help)
 	}
-	var data string
+	var data []string
 	if op.HasBody {
-		cmd.Flags().StringVarP(&data, "data", "d", "", "request body: inline JSON, @file, or '-' for stdin")
+		cmd.Flags().StringArrayVarP(&data, "data", "d", nil, dataFlagHelp)
 	}
 	var paginate bool
 	if op.Paginated {

@@ -49,6 +49,7 @@ klaviyo metrics list
 klaviyo profiles list --filter 'equals(email,"someone@example.com")'
 klaviyo profiles get 01ABC123 --fields-profile email,first_name
 klaviyo lists list --paginate          # follow cursors, merge all pages
+klaviyo lists create -d data.type=list -d data.attributes.name=Newsletter
 klaviyo events create -d @event.json
 
 # Filter any response with the built-in jq (no jq install needed)
@@ -90,7 +91,7 @@ Conventions across all resource commands:
 
 - Canonical CRUD is `list`, `get`, `create`, `update`, `delete`; everything else keeps its operation name (`klaviyo profiles get-lists-for-profile`).
 - Path parameters are positional arguments; query parameters are flags (`page[size]` becomes `--page-size`).
-- Request bodies use `-d` / `--data`: inline JSON, `@file`, or `-` for stdin.
+- Request bodies use `-d` / `--data`: repeatable `path=value` pairs where dots nest objects (`-d data.type=list -d data.attributes.name=Newsletter`) and `:=` assigns a JSON value (`-d data.attributes.count:=2`), or a single `-d` with inline JSON, `@file`, or `-` for stdin.
 - List commands accept `--paginate` to follow cursors and merge every page's `data` array.
 
 Run `klaviyo <group> --help` for a group's commands, or `klaviyo <group> <command> --help` for its flags. The full reference is the CLI's own help output.

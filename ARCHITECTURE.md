@@ -56,7 +56,8 @@ canonical CRUD on the group's primary resource collapses to `list`/`get`/
 `create`/`update`/`delete`; every other operationId is kebab-cased verbatim
 (`get_lists_for_profile` → `profiles get-lists-for-profile`). Path params are
 positional args; query params become flags (`page[size]` → `--page-size`);
-request bodies use `-d` (inline JSON, `@file`, or stdin); list endpoints get
+request bodies use `-d` (repeatable dot-notation `path=value` pairs, or a
+single inline JSON, `@file`, or stdin); list endpoints get
 `--paginate`, which follows `links.next` cursors and merges every page's
 `data` array.
 
