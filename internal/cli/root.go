@@ -12,6 +12,7 @@ import (
 
 	"github.com/klaviyo/klaviyo-cli/internal/api"
 	"github.com/klaviyo/klaviyo-cli/internal/config"
+	"github.com/klaviyo/klaviyo-cli/internal/keyring"
 )
 
 // Set at release time via goreleaser ldflags.
@@ -119,6 +120,16 @@ func resolveKey() (string, error) {
 	acct, ok := cfg.Accounts[name]
 	if !ok {
 		return "", fmt.Errorf("unknown account %q; run `klaviyo auth list`", name)
+	}
+	if acct.KeyStorage == config.KeyStorageKeyring {
+		key, err := keyring.Get(name)
+		if err == keyring.ErrNotFound {
+			return "", fmt.Errorf("account %q key is missing from the OS keychain; re-run `klaviyo auth login --account %s`", name, name)
+		}
+		if err != nil {
+			return "", fmt.Errorf("reading key for account %q from OS keychain: %w (set KLAVIYO_API_KEY to bypass)", name, err)
+		}
+		return key, nil
 	}
 	if acct.APIKey == "" {
 		return "", fmt.Errorf("no stored key for account %q; re-run `klaviyo auth login --account %s`", name, name)

@@ -5,10 +5,15 @@ import (
 	"testing"
 
 	"github.com/klaviyo/klaviyo-cli/internal/config"
+	"github.com/klaviyo/klaviyo-cli/internal/keyring"
 )
 
 func resetOpts(t *testing.T) {
 	t.Helper()
+	// Isolate from the developer's real environment; resolveKey treats an
+	// empty value as unset.
+	t.Setenv("KLAVIYO_API_KEY", "")
+	t.Setenv("KLAVIYO_ACCOUNT", "")
 	t.Cleanup(func() { opts = globalOpts{} })
 }
 
@@ -77,5 +82,43 @@ func TestResolveKeyErrors(t *testing.T) {
 	opts = globalOpts{account: "prod"}
 	if _, err := resolveKey(); err == nil || !strings.Contains(err.Error(), "re-run") {
 		t.Errorf("empty-key err = %v", err)
+	}
+}
+
+func TestResolveKeyFromKeyring(t *testing.T) {
+	seedConfig(t)
+	resetOpts(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	acct := cfg.Accounts["prod"]
+	acct.APIKey = ""
+	acct.KeyStorage = config.KeyStorageKeyring
+	cfg.Accounts["prod"] = acct
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	opts = globalOpts{account: "prod"}
+
+	// Key missing from the keychain: point at auth login.
+	if _, err := resolveKey(); err == nil || !strings.Contains(err.Error(), "missing from the OS keychain") {
+		t.Errorf("missing-key err = %v", err)
+	}
+
+	if err := keyring.Set("prod", "pk_ring"); err != nil {
+		t.Fatal(err)
+	}
+	if key, err := resolveKey(); err != nil || key != "pk_ring" {
+		t.Errorf("key = %q, err = %v", key, err)
+	}
+
+	// Keychain unavailable: mention the KLAVIYO_API_KEY bypass.
+	keyring.MockInitWithError(errNoKeychain)
+	t.Cleanup(keyring.MockInit)
+	if _, err := resolveKey(); err == nil || !strings.Contains(err.Error(), "KLAVIYO_API_KEY") {
+		t.Errorf("unavailable err = %v", err)
 	}
 }

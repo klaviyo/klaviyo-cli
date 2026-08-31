@@ -1,9 +1,9 @@
 // Package config reads and writes the CLI's on-disk configuration.
 //
 // Config lives at ~/.config/klaviyo/config.toml (override the directory with
-// KLAVIYO_CONFIG_DIR). It holds account profiles including their private API
-// keys, so it is written with 0600 permissions. OS keychain storage is
-// planned: https://github.com/klaviyo/klaviyo-cli/issues/1
+// KLAVIYO_CONFIG_DIR). It holds account profiles; private API keys live in
+// the OS keychain (internal/keyring) by default, or inline in this file when
+// stored with --insecure-storage, so it is written with 0600 permissions.
 package config
 
 import (
@@ -14,14 +14,22 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 )
 
+// KeyStorageKeyring marks an account whose API key lives in the OS keychain
+// rather than in this file.
+const KeyStorageKeyring = "keyring"
+
 // Account is one named Klaviyo account profile.
 type Account struct {
 	// ID is the Klaviyo account ID (from GET /api/accounts/).
 	ID string `toml:"id,omitempty"`
 	// Organization is the account's organization name, for display.
 	Organization string `toml:"organization,omitempty"`
-	// APIKey is the account's private API key.
+	// APIKey is the account's private API key when stored in this file;
+	// empty when the key lives in the OS keychain.
 	APIKey string `toml:"api_key,omitempty"`
+	// KeyStorage is KeyStorageKeyring when the key is in the OS keychain,
+	// empty for file storage (the pre-keychain format).
+	KeyStorage string `toml:"key_storage,omitempty"`
 }
 
 // Config is the root of config.toml.

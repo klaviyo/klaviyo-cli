@@ -8,22 +8,23 @@ The Klaviyo CLI is a Go binary modeled on the Stripe CLI: it wraps the Klaviyo A
 cmd/klaviyo            entrypoint (main.go only; all logic lives in internal/)
 internal/cli           Cobra command tree; flag parsing, output rendering
 internal/config        config.toml read/write (account profiles, default account)
+internal/keyring       OS keychain storage for account API keys
 internal/api           HTTP client: auth header, revision header, retries
 internal/gen           code generator: OpenAPI spec -> resource commands
 api/openapi            vendored Klaviyo OpenAPI spec (source of generated code)
 ```
 
-Dependency direction: `cli → {config, api}`. The leaf packages do not import each other or `cli`.
+Dependency direction: `cli → {config, keyring, api}`. The leaf packages do not import each other or `cli`.
 
 ## Credential and account model
 
-A named **account profile** is the unit of auth. Profiles — Klaviyo account ID, organization name, and the private API key — live in `~/.config/klaviyo/config.toml`, written with 0600 permissions (0700 directory). This matches the Stripe CLI's model; migrating keys to the OS keychain (as the GitHub CLI does) is planned in [issue #1](https://github.com/klaviyo/klaviyo-cli/issues/1).
+A named **account profile** is the unit of auth. Profile metadata — Klaviyo account ID and organization name — lives in `~/.config/klaviyo/config.toml`, written with 0600 permissions (0700 directory). The private API key itself is stored in the OS keychain (`internal/keyring`, a thin wrapper over `zalando/go-keyring`: macOS Keychain, Windows Credential Manager, Linux Secret Service) under service `klaviyo-cli` with the profile name as the user. This follows the GitHub CLI's model, including its opt-in fallback: when no keychain is available, `auth login` fails unless `--insecure-storage` is passed, which stores the key inline in config.toml instead. Each profile's `key_storage` field records where its key lives (`"keyring"`, or empty for file storage — the pre-keychain format, still honored so old configs keep working). `auth migrate` moves file-stored keys into the keychain; `auth list` hints at it while any remain.
 
 Key resolution precedence (`internal/cli/root.go`):
 
 1. `--api-key` flag
 2. `KLAVIYO_API_KEY` env var
-3. The selected account's key from config.toml, where the account is chosen by `--account` flag → `KLAVIYO_ACCOUNT` env var → `default_account` in config.toml
+3. The selected account's stored key (OS keychain, or config.toml for `--insecure-storage` profiles), where the account is chosen by `--account` flag → `KLAVIYO_ACCOUNT` env var → `default_account` in config.toml
 
 `auth login` verifies a key against `GET /api/accounts/` before storing it, and records the account ID and organization name for display in `auth list`.
 
