@@ -20,7 +20,7 @@ jobs:
       # Runs the same pinned golangci-lint the Makefile installs locally.
       - run: make lint
       # go.mod must match the committed tree. (Generated code freshness is
-      # no longer checked here: the generator lives in devX-scripts-internal,
+      # no longer checked here: the generator is an internal Klaviyo tool,
       # and regeneration lands via reviewed PRs.)
       - name: Check go.mod is tidy
         run: |

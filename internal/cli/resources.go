@@ -1,8 +1,8 @@
 package cli
 
 // resources_gen.go and ../api/revision_gen.go are generated from the vendored
-// OpenAPI spec by the klaviyo-cli-gen tool in the internal devX-scripts-internal
-// repo (sdk_utils/klaviyo-cli-gen); see its README for how to regenerate.
+// OpenAPI spec by klaviyo-cli-gen, an internal Klaviyo tool; regeneration
+// lands via reviewed PRs when the spec updates.
 
 import (
 	"encoding/json"

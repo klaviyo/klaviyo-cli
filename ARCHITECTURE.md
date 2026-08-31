@@ -43,8 +43,8 @@ Key resolution precedence (`internal/cli/root.go`):
 
 Every operation in the vendored spec (345 across 23 tags at revision
 2026-07-15) becomes a command, following the Stripe CLI's build-time-codegen
-model. The generator (`klaviyo-cli-gen`, in the internal devX-scripts-internal
-repo under `sdk_utils/klaviyo-cli-gen`) emits:
+model. The generator (`klaviyo-cli-gen`, maintained in an internal Klaviyo
+repository) emits:
 
 - `internal/cli/resources_gen.go` — a data table of `opSpec` entries (group,
   name, method, path, params); a generic executor in `resources.go` turns each
@@ -60,9 +60,9 @@ request bodies use `-d` (inline JSON, `@file`, or stdin); list endpoints get
 `--paginate`, which follows `links.next` cursors and merges every page's
 `data` array.
 
-Freshness: regeneration is a manual task — run `regenerate.sh` from the
-generator's folder in devX-scripts-internal when klaviyo/openapi publishes a
-new spec, then open a PR here; merging and tagging ships the new commands.
+Freshness: regeneration is a manual task — Klaviyo engineers run the
+generator's `regenerate.sh` when klaviyo/openapi publishes a new spec, then
+open a PR here; merging and tagging ships the new commands.
 The `api` command plus `--revision` covers endpoints newer than the last
 release.
 
