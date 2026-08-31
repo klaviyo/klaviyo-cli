@@ -154,10 +154,9 @@ make build      # builds bin/klaviyo
 make test       # go test -race ./...
 make lint       # installs the pinned golangci-lint into ./bin, then runs it
 make fmt        # gofumpt + goimports via golangci-lint fmt
-make generate   # regenerate resource commands from the vendored OpenAPI spec
 ```
 
-CI runs lint, tests on all three platforms, a snapshot release build, and fails if `go generate` or `go mod tidy` would change the committed tree. A scheduled workflow pulls the latest OpenAPI spec, regenerates, and opens a PR when anything changed.
+CI runs lint, tests on all three platforms, a snapshot release build, and fails if `go mod tidy` would change the committed tree. The resource commands are generated from the vendored OpenAPI spec by an internal tool; regeneration happens via PRs when the spec updates.
 
 Releases are cut by pushing a `v*` tag; GoReleaser builds and publishes the binaries.
 
