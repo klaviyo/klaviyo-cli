@@ -110,6 +110,112 @@ func TestResourceCmdSendsBody(t *testing.T) {
 	}
 }
 
+func TestResourceCmdBuildsBodyFromFieldPairs(t *testing.T) {
+	rec := apiServer(t, 200, `{}`)
+	op := &opSpec{Group: "widgets", Name: "create", Method: "POST", Path: "/api/widgets", HasBody: true}
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs([]string{"-d", "data.type=widget", "-d", "data.attributes.size:=3"})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if rec.body != `{"data":{"attributes":{"size":3},"type":"widget"}}` {
+		t.Errorf("body = %q", rec.body)
+	}
+}
+
+// widgetCreateOp is a HasBody op with generated body-attribute flags.
+func widgetCreateOp() *opSpec {
+	return &opSpec{
+		Group: "widgets", Name: "create", Method: "POST", Path: "/api/widgets",
+		HasBody: true, BodyType: "widget",
+		Body: []bodyFieldSpec{
+			{"name", "name", "string", "widget name"},
+			{"size", "size", "integer", "widget size"},
+			{"active", "active", "boolean", "whether active"},
+			{"tags", "tags", "array-string", "tags"},
+			{"location.city", "location.city", "string", "city"},
+		},
+	}
+}
+
+func runWidgetCreate(t *testing.T, args ...string) (*recordedRequest, error) {
+	t.Helper()
+	rec := apiServer(t, 200, `{}`)
+	cmd := newResourceOpCmd(widgetCreateOp())
+	cmd.SetArgs(args)
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	return rec, cmd.Execute()
+}
+
+func TestBodyFlagsBuildTypedBodyAndInjectType(t *testing.T) {
+	rec, err := runWidgetCreate(t,
+		"--name", "Widget", "--size", "3", "--active", "true",
+		"--tags", "a", "--tags", "b", "--location.city", "Boston")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"data":{"attributes":{"active":true,"location":{"city":"Boston"},"name":"Widget","size":3,"tags":["a","b"]},"type":"widget"}}`
+	if rec.body != want {
+		t.Errorf("body = %s, want %s", rec.body, want)
+	}
+}
+
+func TestBodyFlagsMergeWithDataPairs(t *testing.T) {
+	rec, err := runWidgetCreate(t, "--name", "Widget", "-d", `data.relationships.tags.data:=[{"type":"tag","id":"T1"}]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"data":{"attributes":{"name":"Widget"},"relationships":{"tags":{"data":[{"id":"T1","type":"tag"}]}},"type":"widget"}}`
+	if rec.body != want {
+		t.Errorf("body = %s, want %s", rec.body, want)
+	}
+}
+
+func TestBodyFlagsRespectExplicitType(t *testing.T) {
+	rec, err := runWidgetCreate(t, "--name", "W", "-d", "data.type=custom-widget")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rec.body, `"type":"custom-widget"`) {
+		t.Errorf("explicit data.type must win: %s", rec.body)
+	}
+}
+
+func TestBodyFlagConflictsWithDataPair(t *testing.T) {
+	if _, err := runWidgetCreate(t, "--name", "A", "-d", "data.attributes.name=B"); err == nil {
+		t.Error("conflicting flag and -d pair must error")
+	}
+}
+
+func TestBodyFlagsRejectWholeBodyData(t *testing.T) {
+	if _, err := runWidgetCreate(t, "--name", "A", "-d", `{"data":{}}`); err == nil ||
+		!strings.Contains(err.Error(), "cannot be combined") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestBodyFlagsValidateTypes(t *testing.T) {
+	if _, err := runWidgetCreate(t, "--size", "big"); err == nil || !strings.Contains(err.Error(), "not a valid integer") {
+		t.Errorf("size err = %v", err)
+	}
+	if _, err := runWidgetCreate(t, "--active", "yes"); err == nil || !strings.Contains(err.Error(), "not a valid boolean") {
+		t.Errorf("active err = %v", err)
+	}
+}
+
+func TestBodyFlagsAloneStillInjectType(t *testing.T) {
+	// -d dot pairs without flags also get data.type injected.
+	rec, err := runWidgetCreate(t, "-d", "data.attributes.name=Widget")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rec.body, `"type":"widget"`) {
+		t.Errorf("type not injected: %s", rec.body)
+	}
+}
+
 func TestRunPaginatedMergesPages(t *testing.T) {
 	doer := &fakeDoer{pages: []string{
 		`{"data":[{"id":"1"}],"links":{"next":"https://a.klaviyo.com/api/profiles?page%5Bcursor%5D=abc"}}`,

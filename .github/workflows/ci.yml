@@ -19,12 +19,13 @@ jobs:
           go-version-file: go.mod
       # Runs the same pinned golangci-lint the Makefile installs locally.
       - run: make lint
-      # Generated code and go.mod must match the committed tree.
-      - name: Check generated code and go.mod are current
+      # go.mod must match the committed tree. (Generated code freshness is
+      # no longer checked here: the generator is an internal Klaviyo tool,
+      # and regeneration lands via reviewed PRs.)
+      - name: Check go.mod is tidy
         run: |
-          go generate ./...
           go mod tidy
-          git diff --exit-code -- '*.go' go.mod go.sum
+          git diff --exit-code -- go.mod go.sum
 
   test:
     name: Test (${{ matrix.os }})

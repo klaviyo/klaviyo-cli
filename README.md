@@ -49,7 +49,9 @@ klaviyo metrics list
 klaviyo profiles list --filter 'equals(email,"someone@example.com")'
 klaviyo profiles get 01ABC123 --fields-profile email,first_name
 klaviyo lists list --paginate          # follow cursors, merge all pages
-klaviyo events create -d @event.json
+klaviyo lists create --name Newsletter # body attributes are flags
+klaviyo profiles create --email someone@example.com --location.city Boston
+klaviyo events create -d @event.json   # or supply the whole body yourself
 
 # Filter any response with the built-in jq (no jq install needed)
 klaviyo lists list --jq '.data[].attributes.name'
@@ -593,7 +595,8 @@ Conventions across all resource commands:
 
 - Canonical CRUD is `list`, `get`, `create`, `update`, `delete`; everything else keeps its operation name (`klaviyo profiles get-lists-for-profile`).
 - Path parameters are positional arguments; query parameters are flags (`page[size]` becomes `--page-size`).
-- Request bodies use `-d` / `--data`: inline JSON, `@file`, or `-` for stdin.
+- **Body attributes are flags too**: each scalar field under the body's `data.attributes` gets its own typed, documented flag — `klaviyo lists create --name Newsletter --opt-in-process double_opt_in`, with dots for nested objects (`--location.city Boston`) and repeats for arrays. The JSON:API `data.type` is filled in automatically, and `--help` lists every field with its description from the API spec.
+- Anything a flag can't express — free-form maps like event `properties`, arrays of objects, relationships, bulk endpoints — uses `-d` / `--data`: repeatable `path=value` pairs where dots nest objects (`-d data.attributes.properties.item=shirt`) and `:=` assigns a JSON value (`-d 'data.relationships.lists.data:=[{"type":"list","id":"Abc123"}]'`), or a single `-d` with inline JSON, `@file`, or `-` for stdin. Body flags and `-d` pairs combine into one body; conflicting fields are an error.
 - List commands accept `--paginate` to follow cursors and merge every page's `data` array.
 
 Run `klaviyo <group> --help` for a group's commands, or `klaviyo <group> <command> --help` for its flags. The full reference is the CLI's own help output.
@@ -657,10 +660,9 @@ make build      # builds bin/klaviyo
 make test       # go test -race ./...
 make lint       # installs the pinned golangci-lint into ./bin, then runs it
 make fmt        # gofumpt + goimports via golangci-lint fmt
-make generate   # regenerate resource commands from the vendored OpenAPI spec
 ```
 
-CI runs lint, tests on all three platforms, a snapshot release build, and fails if `go generate` or `go mod tidy` would change the committed tree. A scheduled workflow pulls the latest OpenAPI spec, regenerates, and opens a PR when anything changed.
+CI runs lint, tests on all three platforms, a snapshot release build, and fails if `go mod tidy` would change the committed tree. The resource commands are generated from the vendored OpenAPI spec by an internal tool; regeneration happens via PRs when the spec updates.
 
 Releases are cut by pushing a `v*` tag; GoReleaser builds and publishes the binaries.
 
