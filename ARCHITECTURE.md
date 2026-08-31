@@ -10,7 +10,6 @@ internal/cli           Cobra command tree; flag parsing, output rendering
 internal/config        config.toml read/write (account profiles, default account)
 internal/keyring       OS keychain storage for account API keys
 internal/api           HTTP client: auth header, revision header, retries
-internal/gen           code generator: OpenAPI spec -> resource commands
 api/openapi            vendored Klaviyo OpenAPI spec (source of generated code)
 ```
 
@@ -44,7 +43,8 @@ Key resolution precedence (`internal/cli/root.go`):
 
 Every operation in the vendored spec (345 across 23 tags at revision
 2026-07-15) becomes a command, following the Stripe CLI's build-time-codegen
-model. `go generate ./...` runs `internal/gen`, which emits:
+model. The generator (`klaviyo-cli-gen`, maintained in an internal Klaviyo
+repository) emits:
 
 - `internal/cli/resources_gen.go` — a data table of `opSpec` entries (group,
   name, method, path, params); a generic executor in `resources.go` turns each
@@ -60,16 +60,16 @@ request bodies use `-d` (inline JSON, `@file`, or stdin); list endpoints get
 `--paginate`, which follows `links.next` cursors and merges every page's
 `data` array.
 
-Freshness: CI fails if `go generate` would change anything (spec/code drift),
-and the `sync-openapi.yml` workflow (weekday schedule + manual) pulls the
-latest spec from klaviyo/openapi, regenerates, and opens a PR; merging and
-tagging ships the new commands. The `api` command plus `--revision` covers
-endpoints newer than the last release.
+Freshness: regeneration is a manual task — Klaviyo engineers run the
+generator's `regenerate.sh` when klaviyo/openapi publishes a new spec, then
+open a PR here; merging and tagging ships the new commands.
+The `api` command plus `--revision` covers endpoints newer than the last
+release.
 
 ## Design decisions
 
 - **Go + Cobra, no Viper.** Cobra is the standard CLI framework (Stripe CLI, GitHub CLI, kubectl). Viper (its usual config companion) is heavyweight and global-state driven; config needs here are one small TOML file, handled explicitly in `internal/config`.
-- **Keys in the config file, keychain later.** v0 stores keys in config.toml (0600) like the Stripe CLI, keeping storage simple and headless-friendly. OS keychain storage — the GitHub CLI's current default — is tracked in issue #1. `KLAVIYO_API_KEY`/`--api-key` bypass stored profiles for CI.
+- **Keys in the OS keychain, file storage as opt-in.** Keys live in the OS keychain (the GitHub CLI's model); `--insecure-storage` opts into config.toml (0600) for keychain-less environments. `KLAVIYO_API_KEY`/`--api-key` bypass stored profiles for CI.
 - **`internal/` for everything.** The Go compiler forbids external imports of `internal/...`, so nothing here is public API until deliberately moved to `pkg/`.
 - **Static binaries.** `CGO_ENABLED=0` everywhere, so releases are dependency-free single files.
 - **Module path is the repo URL.** `github.com/klaviyo/klaviyo-cli` — renaming the repo means rewriting every import.
@@ -78,6 +78,5 @@ endpoints newer than the last release.
 
 1. **Docs site** — `docs/` static site in the style of docs.stripe.com/stripe-cli.
 2. **Distribution** — Homebrew tap, .deb/.rpm, Docker image (all wired in `.goreleaser.yaml` once the repo is public).
-3. **OS keychain key storage** — [issue #1](https://github.com/klaviyo/klaviyo-cli/issues/1).
-4. **OAuth login** — browser-based flow as an alternative to pasting private keys.
-5. **Headless workflows** — fold in the resources-as-files model from [headless-klaviyo](https://github.com/klaviyo/headless-klaviyo) as `pull`/`push` command groups.
+3. **OAuth login** — browser-based flow as an alternative to pasting private keys.
+4. **Headless workflows** — fold in the resources-as-files model from [headless-klaviyo](https://github.com/klaviyo/headless-klaviyo) as `pull`/`push` command groups.
