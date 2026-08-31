@@ -16,6 +16,7 @@ import (
 
 	"github.com/klaviyo/klaviyo-cli/internal/api"
 	"github.com/klaviyo/klaviyo-cli/internal/config"
+	"github.com/klaviyo/klaviyo-cli/internal/keyring"
 )
 
 // stdinIsTTY is stubbed in tests.
@@ -32,6 +33,7 @@ func newAuthCmd() *cobra.Command {
 		newAuthListCmd(),
 		newAuthSwitchCmd(),
 		newAuthStatusCmd(),
+		newAuthMigrateCmd(),
 	)
 	return cmd
 }
@@ -76,15 +78,17 @@ func verifyKey(ctx context.Context, key string) (id, org string, err error) {
 
 func newAuthLoginCmd() *cobra.Command {
 	var name, key string
-	var setDefault bool
+	var setDefault, insecureStorage bool
 
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Store an API key for a named account",
 		Long: `Store a private API key for a named account.
 
-The key is verified against the Klaviyo API before it is stored in the CLI
-config file (0600 permissions). The first account added becomes the default;
+The key is verified against the Klaviyo API before it is stored in the OS
+keychain. If no keychain is available (common on headless Linux and in
+containers), pass --insecure-storage to store the key in the CLI config file
+(0600 permissions) instead. The first account added becomes the default;
 use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			interactive := stdinIsTTY()
@@ -129,7 +133,22 @@ use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 			if err != nil {
 				return err
 			}
-			cfg.Accounts[name] = config.Account{ID: id, Organization: org, APIKey: key}
+			acct := config.Account{ID: id, Organization: org}
+			if insecureStorage {
+				acct.APIKey = key
+				// Drop any key a previous keyring-backed login left behind.
+				if cfg.Accounts[name].KeyStorage == config.KeyStorageKeyring {
+					if err := keyring.Delete(name); err != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not remove old key from OS keychain: %v\n", err)
+					}
+				}
+			} else {
+				if err := keyring.Set(name, key); err != nil {
+					return fmt.Errorf("storing key in OS keychain: %w (pass --insecure-storage to store it in the config file instead)", err)
+				}
+				acct.KeyStorage = config.KeyStorageKeyring
+			}
+			cfg.Accounts[name] = acct
 			if cfg.DefaultAccount == "" || setDefault {
 				cfg.DefaultAccount = name
 			}
@@ -137,9 +156,13 @@ use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 				return err
 			}
 
-			path, _ := config.Path()
 			fmt.Fprintf(cmd.OutOrStdout(), "Logged in to %q (%s, account %s)\n", name, org, id)
-			fmt.Fprintf(cmd.OutOrStdout(), "Key stored in %s\n", path)
+			if insecureStorage {
+				path, _ := config.Path()
+				fmt.Fprintf(cmd.OutOrStdout(), "Key stored in %s\n", path)
+			} else {
+				fmt.Fprintln(cmd.OutOrStdout(), "Key stored in the OS keychain")
+			}
 			if cfg.DefaultAccount == name {
 				fmt.Fprintf(cmd.OutOrStdout(), "%q is now the default account\n", name)
 			}
@@ -149,6 +172,7 @@ use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 	cmd.Flags().StringVar(&name, "account", "", "name for this account profile (prompted if omitted)")
 	cmd.Flags().StringVar(&key, "api-key", "", "private API key (prompted securely if omitted)")
 	cmd.Flags().BoolVar(&setDefault, "set-default", false, "make this the default account")
+	cmd.Flags().BoolVar(&insecureStorage, "insecure-storage", false, "store the key in the config file instead of the OS keychain")
 	return cmd
 }
 
@@ -164,8 +188,15 @@ func newAuthLogoutCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, ok := cfg.Accounts[name]; !ok {
+			acct, ok := cfg.Accounts[name]
+			if !ok {
 				return fmt.Errorf("unknown account %q", name)
+			}
+			if acct.KeyStorage == config.KeyStorageKeyring {
+				if err := keyring.Delete(name); err != nil {
+					// Still remove the profile; don't strand the user.
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not remove key from OS keychain: %v\n", err)
+				}
 			}
 			delete(cfg.Accounts, name)
 			if cfg.DefaultAccount == name {
@@ -197,13 +228,23 @@ func newAuthListCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "No accounts configured; run `klaviyo auth login`")
 				return nil
 			}
+			fileStored := false
 			for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
 				acct := cfg.Accounts[name]
 				marker := " "
 				if name == cfg.DefaultAccount {
 					marker = "*"
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %-20s %-8s %s\n", marker, name, acct.ID, acct.Organization)
+				storage := "file"
+				if acct.KeyStorage == config.KeyStorageKeyring {
+					storage = "keyring"
+				} else {
+					fileStored = true
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "%s %-20s %-8s %-8s %s\n", marker, name, acct.ID, storage, acct.Organization)
+			}
+			if fileStored {
+				fmt.Fprintln(cmd.OutOrStdout(), "hint: run `klaviyo auth migrate` to move file-stored keys into the OS keychain")
 			}
 			return nil
 		},
@@ -230,6 +271,50 @@ func newAuthSwitchCmd() *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Default account is now %q\n", name)
+			return nil
+		},
+	}
+}
+
+func newAuthMigrateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "migrate",
+		Short: "Move file-stored API keys into the OS keychain",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			var failed []string
+			migrated := 0
+			for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
+				acct := cfg.Accounts[name]
+				if acct.APIKey == "" {
+					continue
+				}
+				if err := keyring.Set(name, acct.APIKey); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: %q: %v\n", name, err)
+					failed = append(failed, name)
+					continue
+				}
+				acct.APIKey = ""
+				acct.KeyStorage = config.KeyStorageKeyring
+				cfg.Accounts[name] = acct
+				migrated++
+				fmt.Fprintf(cmd.OutOrStdout(), "Moved key for %q into the OS keychain\n", name)
+			}
+			if migrated > 0 {
+				if err := cfg.Save(); err != nil {
+					return err
+				}
+			}
+			if len(failed) > 0 {
+				return fmt.Errorf("could not migrate %s; is an OS keychain available? (macOS Keychain, Windows Credential Manager, or a Linux Secret Service)",
+					strings.Join(failed, ", "))
+			}
+			if migrated == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "No file-stored keys to migrate")
+			}
 			return nil
 		},
 	}

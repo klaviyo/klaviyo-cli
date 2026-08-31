@@ -71,6 +71,7 @@ Core commands:
 | `klaviyo auth list` | List configured accounts |
 | `klaviyo auth switch <account>` | Set the default account |
 | `klaviyo auth status` | Verify credentials for the selected account |
+| `klaviyo auth migrate` | Move file-stored API keys into the OS keychain |
 | `klaviyo api [method] <path>` | Raw authenticated API request (defaults to GET) |
 | `klaviyo config` | Show or edit CLI configuration (`--list`, `--set`, `-e`) |
 | `klaviyo open <shortcut>` | Open Klaviyo dashboard or docs pages in your browser |
@@ -114,7 +115,7 @@ The key used for a request resolves in this order:
 2. `KLAVIYO_API_KEY` environment variable
 3. The selected account's stored key, where the account is chosen by `--account` flag, then `KLAVIYO_ACCOUNT`, then the configured default
 
-Profiles live in `~/.config/klaviyo/config.toml`, written with `0600` permissions (OS keychain storage is planned — see [issue #1](https://github.com/klaviyo/klaviyo-cli/issues/1)). In CI, skip stored accounts entirely and set `KLAVIYO_API_KEY`.
+Profiles live in `~/.config/klaviyo/config.toml`; the API keys themselves are stored in the OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). Where no keychain is available — headless Linux, containers — pass `--insecure-storage` to `auth login` to store the key in the config file instead, written with `0600` permissions. Keys stored in the file by older CLI versions keep working; run `klaviyo auth migrate` to move them into the keychain. In CI, skip stored accounts entirely and set `KLAVIYO_API_KEY`.
 
 ## Output and scripting
 

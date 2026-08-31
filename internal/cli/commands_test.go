@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -10,7 +11,16 @@ import (
 
 	"github.com/klaviyo/klaviyo-cli/internal/api"
 	"github.com/klaviyo/klaviyo-cli/internal/config"
+	"github.com/klaviyo/klaviyo-cli/internal/keyring"
 )
+
+// TestMain replaces the OS keychain with an in-memory mock so no test can
+// touch the real keychain. Tests that need a fresh or failing keychain call
+// keyring.MockInit / keyring.MockInitWithError themselves.
+func TestMain(m *testing.M) {
+	keyring.MockInit()
+	os.Exit(m.Run())
+}
 
 func runCommand(t *testing.T, args ...string) (string, error) {
 	t.Helper()
@@ -23,8 +33,11 @@ func runCommand(t *testing.T, args ...string) (string, error) {
 	return out.String(), err
 }
 
+// seedConfig writes a config with file-stored keys (the pre-keychain format)
+// and resets the mock keychain.
 func seedConfig(t *testing.T) {
 	t.Helper()
+	keyring.MockInit()
 	t.Setenv("KLAVIYO_CONFIG_DIR", t.TempDir())
 	cfg := &config.Config{
 		DefaultAccount: "prod",
@@ -35,6 +48,28 @@ func seedConfig(t *testing.T) {
 	}
 	if err := cfg.Save(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// seedKeyringConfig writes a config whose keys live in the (mock) keychain.
+func seedKeyringConfig(t *testing.T) {
+	t.Helper()
+	keyring.MockInit()
+	t.Setenv("KLAVIYO_CONFIG_DIR", t.TempDir())
+	cfg := &config.Config{
+		DefaultAccount: "prod",
+		Accounts: map[string]config.Account{
+			"prod":    {ID: "A1", Organization: "Acme", KeyStorage: config.KeyStorageKeyring},
+			"staging": {ID: "B2", Organization: "Acme Staging", KeyStorage: config.KeyStorageKeyring},
+		},
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	for name, key := range map[string]string{"prod": "pk_1", "staging": "pk_2"} {
+		if err := keyring.Set(name, key); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
