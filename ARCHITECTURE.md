@@ -56,10 +56,21 @@ canonical CRUD on the group's primary resource collapses to `list`/`get`/
 `create`/`update`/`delete`; every other operationId is kebab-cased verbatim
 (`get_lists_for_profile` → `profiles get-lists-for-profile`). Path params are
 positional args; query params become flags (`page[size]` → `--page-size`);
-request bodies use `-d` (repeatable dot-notation `path=value` pairs, or a
-single inline JSON, `@file`, or stdin); list endpoints get
-`--paginate`, which follows `links.next` cursors and merges every page's
-`data` array.
+list endpoints get `--paginate`, which follows `links.next` cursors and
+merges every page's `data` array.
+
+Request bodies, Stripe CLI-style: the generator walks each operation's
+requestBody schema (resolving `$ref` chains and `allOf` merges) and emits a
+`bodyFieldSpec` per scalar or scalar-array leaf under `data.attributes` —
+kebab-case within a segment, dots between (`--opt-in-process`,
+`--location.city`), typed and documented from the schema. The executor
+parses each flag per its schema type (numbers and booleans reach the API as
+JSON numbers and booleans, arrays as repeated flags) and auto-fills the
+JSON:API `data.type` constant. What can't be a flag — free-form maps,
+arrays of objects, `oneOf` fields, relationships, bulk (array-`data`)
+endpoints — stays on `-d` (repeatable dot-notation `path=value` pairs, or a
+single inline JSON, `@file`, or stdin); flags and `-d` pairs merge into one
+body, with conflicting paths rejected.
 
 Freshness: regeneration is a manual task — Klaviyo engineers run the
 generator's `regenerate.sh` when klaviyo/openapi publishes a new spec, then

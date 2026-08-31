@@ -25,6 +25,16 @@ type queryParamSpec struct {
 	Help string
 }
 
+// bodyFieldSpec is one flag-able request-body attribute: its dot path under
+// data.attributes, CLI flag name, schema type (string, integer, number,
+// boolean, or array-<scalar>), and one-line help text.
+type bodyFieldSpec struct {
+	Path string
+	Flag string
+	Type string
+	Help string
+}
+
 // opSpec describes one generated API operation command.
 type opSpec struct {
 	Group      string
@@ -35,6 +45,8 @@ type opSpec struct {
 	PathParams []string
 	Query      []queryParamSpec
 	HasBody    bool
+	BodyType   string // JSON:API resource type, auto-filled into data.type
+	Body       []bodyFieldSpec
 	Paginated  bool
 }
 
@@ -79,8 +91,17 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		queryFlags[i] = cmd.Flags().String(q.Flag, "", q.Help)
 	}
 	var data []string
+	bodyStrs := make([]*string, len(op.Body))
+	bodyArrs := make([]*[]string, len(op.Body))
 	if op.HasBody {
 		cmd.Flags().StringArrayVarP(&data, "data", "d", nil, dataFlagHelp)
+		for i, f := range op.Body {
+			if strings.HasPrefix(f.Type, "array") {
+				bodyArrs[i] = cmd.Flags().StringArray(f.Flag, nil, f.Help)
+			} else {
+				bodyStrs[i] = cmd.Flags().String(f.Flag, "", f.Help)
+			}
+		}
 	}
 	var paginate bool
 	if op.Paginated {
@@ -98,7 +119,7 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		var body []byte
 		if op.HasBody {
 			var err error
-			if body, err = readBody(data); err != nil {
+			if body, err = assembleBody(cmd, op, data, bodyStrs, bodyArrs); err != nil {
 				return err
 			}
 		}
@@ -116,6 +137,91 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		return printResponse(cmd, resp)
 	}
 	return cmd
+}
+
+// assembleBody builds the request body from --data and the generated
+// per-attribute body flags. A whole-body --data (inline JSON, @file, '-')
+// is passed through untouched and cannot combine with body flags;
+// otherwise flags and --data field pairs merge into one object (conflicts
+// error), and data.type is auto-filled from the spec when absent.
+func assembleBody(cmd *cobra.Command, op *opSpec, data []string, bodyStrs []*string, bodyArrs []*[]string) ([]byte, error) {
+	changed := false
+	for _, f := range op.Body {
+		if cmd.Flags().Changed(f.Flag) {
+			changed = true
+			break
+		}
+	}
+	if isWholeBody(data) {
+		if changed {
+			return nil, fmt.Errorf("body attribute flags cannot be combined with a whole --data body; use repeatable -d path=value pairs instead")
+		}
+		return readBody(data)
+	}
+	root := map[string]any{}
+	if err := applyPairs(root, data); err != nil {
+		return nil, err
+	}
+	for i, f := range op.Body {
+		if !cmd.Flags().Changed(f.Flag) {
+			continue
+		}
+		var v any
+		if strings.HasPrefix(f.Type, "array") {
+			itemType := strings.TrimPrefix(f.Type, "array-")
+			items := make([]any, 0, len(*bodyArrs[i]))
+			for _, raw := range *bodyArrs[i] {
+				item, err := convertBodyValue(itemType, raw, f.Flag)
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, item)
+			}
+			v = items
+		} else {
+			var err error
+			if v, err = convertBodyValue(f.Type, *bodyStrs[i], f.Flag); err != nil {
+				return nil, err
+			}
+		}
+		if err := setField(root, "data.attributes."+f.Path, v); err != nil {
+			return nil, err
+		}
+	}
+	if len(root) == 0 {
+		return nil, nil
+	}
+	if op.BodyType != "" {
+		if d, ok := root["data"].(map[string]any); ok {
+			if _, has := d["type"]; !has {
+				d["type"] = op.BodyType
+			}
+		}
+	}
+	return json.Marshal(root)
+}
+
+// convertBodyValue parses a flag value according to its schema type, so
+// numbers and booleans reach the API as JSON numbers and booleans.
+func convertBodyValue(typ, raw, flag string) (any, error) {
+	switch typ {
+	case "integer", "number":
+		var n json.Number
+		if err := json.Unmarshal([]byte(raw), &n); err != nil {
+			return nil, fmt.Errorf("--%s: %q is not a valid %s", flag, raw, typ)
+		}
+		return n, nil
+	case "boolean":
+		switch raw {
+		case "true":
+			return true, nil
+		case "false":
+			return false, nil
+		}
+		return nil, fmt.Errorf("--%s: %q is not a valid boolean (true or false)", flag, raw)
+	default:
+		return raw, nil
+	}
 }
 
 // resolvePath substitutes {param} placeholders with positional args.

@@ -75,6 +75,18 @@ Examples:
 
 const dataFlagHelp = "request body: repeatable path=value with dots nesting objects (':=' for JSON values), or a single inline JSON, @file, or '-' for stdin"
 
+// isWholeBody reports whether the --data values are a single argument
+// supplying the whole body (stdin, @file, or inline JSON) rather than
+// path=value field pairs.
+func isWholeBody(data []string) bool {
+	if len(data) != 1 {
+		return false
+	}
+	d := strings.TrimSpace(data[0])
+	return data[0] == "-" || strings.HasPrefix(data[0], "@") ||
+		strings.HasPrefix(d, "{") || strings.HasPrefix(d, "[")
+}
+
 // readBody assembles the request body from the repeatable --data flag. A
 // single value that is '-', @file, or an inline JSON document supplies the
 // whole body; anything else is treated as path=value field pairs.
@@ -82,7 +94,7 @@ func readBody(data []string) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
-	if len(data) == 1 {
+	if isWholeBody(data) {
 		switch d := data[0]; {
 		case d == "-":
 			body, err := io.ReadAll(os.Stdin)
@@ -96,39 +108,42 @@ func readBody(data []string) ([]byte, error) {
 				return nil, fmt.Errorf("reading body file: %w", err)
 			}
 			return body, nil
-		case strings.HasPrefix(strings.TrimSpace(d), "{"), strings.HasPrefix(strings.TrimSpace(d), "["):
+		default:
 			return []byte(d), nil
 		}
 	}
-	return buildBody(data)
+	root := map[string]any{}
+	if err := applyPairs(root, data); err != nil {
+		return nil, err
+	}
+	return json.Marshal(root)
 }
 
-// buildBody turns path=value field pairs into one nested JSON object.
-// Dots in the path nest objects (data.attributes.name=x). '=' assigns a
-// string; ':=' assigns the raw JSON value (numbers, booleans, arrays,
-// objects) — which is also the escape hatch for keys that themselves
-// contain dots, by assigning a JSON object one level up.
-func buildBody(pairs []string) ([]byte, error) {
-	root := map[string]any{}
+// applyPairs writes path=value field pairs into root as one nested JSON
+// object. Dots in the path nest objects (data.attributes.name=x). '='
+// assigns a string; ':=' assigns the raw JSON value (numbers, booleans,
+// arrays, objects) — which is also the escape hatch for keys that
+// themselves contain dots, by assigning a JSON object one level up.
+func applyPairs(root map[string]any, pairs []string) error {
 	for _, pair := range pairs {
 		path, value, found := strings.Cut(pair, "=")
 		if !found || path == "" || path == ":" {
-			return nil, fmt.Errorf("invalid body field %q; expected path=value or path:=json (or a single -d with inline JSON, @file, or '-')", pair)
+			return fmt.Errorf("invalid body field %q; expected path=value or path:=json (or a single -d with inline JSON, @file, or '-')", pair)
 		}
 		var v any
 		if strings.HasSuffix(path, ":") {
 			path = strings.TrimSuffix(path, ":")
 			if err := json.Unmarshal([]byte(value), &v); err != nil {
-				return nil, fmt.Errorf("invalid JSON value for field %q: %w", path, err)
+				return fmt.Errorf("invalid JSON value for field %q: %w", path, err)
 			}
 		} else {
 			v = value
 		}
 		if err := setField(root, path, v); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return json.Marshal(root)
+	return nil
 }
 
 // setField writes value at the dot-separated path, creating intermediate
