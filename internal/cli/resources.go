@@ -1,6 +1,8 @@
 package cli
 
-//go:generate go run ../gen -spec ../../api/openapi/stable.json -cmds-out resources_gen.go -rev-out ../api/revision_gen.go
+// resources_gen.go and ../api/revision_gen.go are generated from the vendored
+// OpenAPI spec by klaviyo-cli-gen, an internal Klaviyo tool; regeneration
+// lands via reviewed PRs when the spec updates.
 
 import (
 	"encoding/json"
