@@ -78,6 +78,7 @@ Core commands:
 | `klaviyo completion <shell>` | Generate shell completion scripts |
 | `klaviyo version` | Print the CLI version |
 
+<!-- klaviyo-cli-gen:commands:begin -->
 Resource commands cover every operation in the Klaviyo API — one command per operation, 345 commands across 23 groups. Expand a group for its commands (run `klaviyo <group> <command> --help` for arguments and flags):
 
 <details>
@@ -586,6 +587,7 @@ Resource commands cover every operation in the Klaviyo API — one command per o
 | `klaviyo webhooks update` | Update Webhook |
 
 </details>
+<!-- klaviyo-cli-gen:commands:end -->
 
 Conventions across all resource commands:
 
