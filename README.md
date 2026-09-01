@@ -159,7 +159,7 @@ make lint       # installs the pinned golangci-lint into ./bin, then runs it
 make fmt        # gofumpt + goimports via golangci-lint fmt
 ```
 
-CI runs lint, tests on all three platforms, a snapshot release build, and fails if `go mod tidy` would change the committed tree. The resource commands are generated from the vendored OpenAPI spec by an internal tool; regeneration happens via PRs when the spec updates.
+CI runs lint, tests on all three platforms, a snapshot release build, and fails if `go mod tidy` would change the committed tree. The resource commands are generated from the published Klaviyo OpenAPI spec by an internal tool; regeneration happens automatically when the spec updates.
 
 Releases are cut by pushing a `v*` tag; GoReleaser builds and publishes the binaries.
 
