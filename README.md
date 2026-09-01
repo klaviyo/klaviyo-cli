@@ -1,35 +1,47 @@
-# Klaviyo CLI
+# Klaviyo CLI (beta)
 
-The Klaviyo CLI lets you build, test, and manage your [Klaviyo](https://www.klaviyo.com) integration from the terminal — in the spirit of the Stripe CLI.
+The Klaviyo CLI lets you build, test, and manage your [Klaviyo](https://www.klaviyo.com) integration from the terminal.
 
 With the CLI, you can:
 
-- Call every Klaviyo API operation as a typed command (345 commands across 23 groups, generated from the [OpenAPI spec](https://github.com/klaviyo/openapi))
+- Call every Klaviyo API operation as a typed command (generated from the [OpenAPI spec](https://github.com/klaviyo/openapi))
 - Authenticate once per account and switch between accounts
 - Script against the API with built-in jq filtering and cursor pagination
 - Hit any endpoint raw with `klaviyo api`, including ones newer than your CLI build
 
-> Status: early development, private preview.
-
 ## Installation
 
-The repo is private, so both channels need GitHub credentials with access to `klaviyo/klaviyo-cli`.
+**Binary releases** (amd64 and arm64) are on the [Releases page](https://github.com/klaviyo/klaviyo-cli/releases/latest). The commands below fetch them with the [GitHub CLI](https://cli.github.com); downloading the archive for your platform from the Releases page by hand and unpacking it the same way works too.
 
-**Binary releases** (macOS, Linux, and Windows; amd64 and arm64) are on the [Releases page](https://github.com/klaviyo/klaviyo-cli/releases/latest). With the [GitHub CLI](https://cli.github.com):
-
-```bash
-gh release download -R klaviyo/klaviyo-cli --pattern '*darwin_arm64*'
-tar -xzf klaviyo-cli_*_darwin_arm64.tar.gz klaviyo
-mv klaviyo /usr/local/bin/   # or anywhere on your PATH
-```
-
-**From source** (Go 1.25+, with git authenticated to GitHub — for example via `gh auth setup-git`):
+**macOS**
 
 ```bash
-GOPRIVATE=github.com/klaviyo/* go install github.com/klaviyo/klaviyo-cli/cmd/klaviyo@latest
+gh release download -R klaviyo/klaviyo-cli --pattern '*darwin_arm64*'   # Intel Macs: darwin_amd64
+sudo tar -xzf klaviyo-cli_*_darwin_arm64.tar.gz -C /usr/local/bin klaviyo   # or -C any directory on your PATH
 ```
 
-Package managers (Homebrew tap, .deb/.rpm, Docker image) are planned for when the repo goes public.
+The binaries are not notarized yet, so if you download with a browser instead of `gh`, macOS quarantines the file — clear it with `sudo xattr -d com.apple.quarantine /usr/local/bin/klaviyo`.
+
+**Linux**
+
+```bash
+gh release download -R klaviyo/klaviyo-cli --pattern '*linux_amd64*'    # ARM: linux_arm64
+sudo tar -xzf klaviyo-cli_*_linux_amd64.tar.gz -C /usr/local/bin klaviyo    # or -C any directory on your PATH
+```
+
+**Windows** (PowerShell)
+
+```powershell
+gh release download -R klaviyo/klaviyo-cli --pattern '*windows_amd64*'  # ARM: windows_arm64
+Expand-Archive klaviyo-cli_*_windows_amd64.zip -DestinationPath klaviyo-cli-release
+Move-Item klaviyo-cli-release\klaviyo.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\"   # or any directory on your PATH
+```
+
+**From source** (Go 1.25+):
+
+```bash
+go install github.com/klaviyo/klaviyo-cli/cmd/klaviyo@latest
+```
 
 ### Upgrading
 

@@ -35,7 +35,7 @@ changelog:
       - "^docs:"
       - "^chore:"
 
-# TODO once the repo is public:
+# TODO:
 # - brews: publish a Homebrew formula to a klaviyo/homebrew-tap repo
 # - nfpms: build .deb/.rpm packages
 # - dockers: publish a klaviyo/klaviyo-cli image
