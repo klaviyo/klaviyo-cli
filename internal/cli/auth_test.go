@@ -45,8 +45,8 @@ func TestAuthListShowsDefaultMarkerAndRedactsKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	// Two accounts plus the migrate hint (seedConfig keys are file-stored).
-	if len(lines) != 3 {
+	// One line per account (seedConfig keys are file-stored).
+	if len(lines) != 2 {
 		t.Fatalf("lines = %d:\n%s", len(lines), out)
 	}
 	if !strings.HasPrefix(lines[0], "* prod") {
@@ -55,22 +55,16 @@ func TestAuthListShowsDefaultMarkerAndRedactsKeys(t *testing.T) {
 	if !strings.Contains(lines[0], "file") {
 		t.Errorf("storage column missing: %q", lines[0])
 	}
-	if !strings.Contains(lines[2], "auth migrate") {
-		t.Errorf("migrate hint missing: %q", lines[2])
-	}
 	if strings.Contains(out, "pk_") {
 		t.Errorf("api key leaked:\n%s", out)
 	}
 }
 
-func TestAuthListKeyringStoredHasNoHint(t *testing.T) {
+func TestAuthListShowsKeyringStorage(t *testing.T) {
 	seedKeyringConfig(t)
 	out, err := runCommand(t, "auth", "list")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if strings.Contains(out, "auth migrate") {
-		t.Errorf("unexpected migrate hint:\n%s", out)
 	}
 	if !strings.Contains(out, "keyring") {
 		t.Errorf("storage column missing:\n%s", out)
@@ -238,53 +232,6 @@ func TestAuthLogoutRemovesKeyringKey(t *testing.T) {
 	}
 	if key, err := keyring.Get("staging"); err != nil || key != "pk_2" {
 		t.Errorf("other account's key must survive, key = %q, err = %v", key, err)
-	}
-}
-
-func TestAuthMigrate(t *testing.T) {
-	seedConfig(t)
-
-	out, err := runCommand(t, "auth", "migrate")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, `Moved key for "prod"`) || !strings.Contains(out, `Moved key for "staging"`) {
-		t.Errorf("output = %q", out)
-	}
-	cfg, _ := config.Load()
-	for name, wantKey := range map[string]string{"prod": "pk_1", "staging": "pk_2"} {
-		acct := cfg.Accounts[name]
-		if acct.APIKey != "" || acct.KeyStorage != config.KeyStorageKeyring {
-			t.Errorf("%s account = %+v", name, acct)
-		}
-		if key, err := keyring.Get(name); err != nil || key != wantKey {
-			t.Errorf("%s keyring key = %q, err = %v", name, key, err)
-		}
-	}
-
-	// Second run has nothing to do.
-	out, err = runCommand(t, "auth", "migrate")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, "No file-stored keys") {
-		t.Errorf("output = %q", out)
-	}
-}
-
-func TestAuthMigrateFailsWhenKeychainUnavailable(t *testing.T) {
-	seedConfig(t)
-	keyring.MockInitWithError(errNoKeychain)
-	t.Cleanup(keyring.MockInit)
-
-	_, err := runCommand(t, "auth", "migrate")
-	if err == nil || !strings.Contains(err.Error(), "could not migrate") {
-		t.Fatalf("err = %v", err)
-	}
-	// Keys must remain usable in the file.
-	cfg, _ := config.Load()
-	if cfg.Accounts["prod"].APIKey != "pk_1" {
-		t.Errorf("prod account = %+v", cfg.Accounts["prod"])
 	}
 }
 
