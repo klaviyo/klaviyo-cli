@@ -93,7 +93,7 @@ Core commands:
 | `klaviyo version` | Print the CLI version |
 
 <!-- klaviyo-cli-gen:commands:begin -->
-Resource commands cover every operation in the Klaviyo API — one command per operation, 345 commands across 23 groups. Expand a group for its commands (run `klaviyo <group> <command> --help` for arguments and flags):
+Resource commands cover every JSON operation in the Klaviyo API — one command per operation, 344 commands across 23 groups. Not covered (non-JSON request body): Upload Image From File. Expand a group for its commands (run `klaviyo <group> <command> --help` for arguments and flags):
 
 <details>
 <summary><strong><code>accounts</code></strong> — 2 commands</summary>
