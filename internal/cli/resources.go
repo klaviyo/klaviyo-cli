@@ -50,29 +50,47 @@ type opSpec struct {
 	BodyType    string // JSON:API resource type, auto-filled into data.type
 	Body        []bodyFieldSpec
 	Paginated   bool
+	Beta        bool // beta API operation: lives under `klaviyo beta`, sends the beta revision
 }
 
 // maxPages bounds --paginate as a runaway-loop backstop.
 const maxPages = 1000
 
 // addResourceCmds registers one command group per spec tag, with one
-// subcommand per generated operation (see resources_gen.go).
+// subcommand per generated operation (see resources_gen.go), plus a `beta`
+// parent holding the beta API groups (see resources_beta_gen.go).
 func addResourceCmds(root *cobra.Command) {
+	addGroupCmds(root, resourceOps)
+	if len(betaResourceOps) > 0 {
+		beta := &cobra.Command{
+			Use:   "beta",
+			Short: "Beta API commands",
+			Long: "Beta API commands. These call Klaviyo's beta APIs, sending the beta\n" +
+				"revision header (" + api.DefaultBetaRevision + ") unless --revision overrides it.\n" +
+				"Beta APIs can change or disappear between revisions.",
+		}
+		addGroupCmds(beta, betaResourceOps)
+		root.AddCommand(beta)
+	}
+}
+
+// addGroupCmds mounts ops onto parent, one command group per op group.
+func addGroupCmds(parent *cobra.Command, ops []opSpec) {
 	groups := map[string]*cobra.Command{}
-	for i := range resourceOps {
-		op := &resourceOps[i]
-		parent, ok := groups[op.Group]
+	for i := range ops {
+		op := &ops[i]
+		group, ok := groups[op.Group]
 		if !ok {
-			parent = &cobra.Command{
+			group = &cobra.Command{
 				Use:   op.Group,
 				Short: fmt.Sprintf("Manage %s", strings.ReplaceAll(op.Group, "-", " ")),
 			}
-			groups[op.Group] = parent
+			groups[op.Group] = group
 		}
-		parent.AddCommand(newResourceOpCmd(op))
+		group.AddCommand(newResourceOpCmd(op))
 	}
 	for _, name := range slices.Sorted(maps.Keys(groups)) {
-		root.AddCommand(groups[name])
+		parent.AddCommand(groups[name])
 	}
 }
 
@@ -129,6 +147,10 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		// Beta APIs require a beta revision header; --revision still wins.
+		if op.Beta && opts.revision == "" {
+			client.Revision = api.DefaultBetaRevision
+		}
 		if paginate {
 			return runPaginated(cmd, client, path, query)
 		}
@@ -146,10 +168,14 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 // per-endpoint OAS file in the klaviyo/openapi repo. Both are pinned to the
 // revision these commands were generated from — the docs by version prefix
 // (the current revision's versioned URL redirects to the plain page), the
-// OAS file by its revision branch.
+// OAS file by its revision branch. Beta docs pages exist only on the docs
+// site's current version, so beta docs links stay unversioned; the beta OAS
+// file still pins to the beta revision branch.
 const (
-	docsURLFmt = "https://developers.klaviyo.com/en/v%s/reference/%s"
-	oasURLFmt  = "https://github.com/klaviyo/openapi/blob/%s/openapi/stable/apis/%s.json"
+	docsURLFmt     = "https://developers.klaviyo.com/en/v%s/reference/%s"
+	betaDocsURLFmt = "https://developers.klaviyo.com/en/reference/%s"
+	oasURLFmt      = "https://github.com/klaviyo/openapi/blob/%s/openapi/stable/apis/%s.json"
+	betaOASURLFmt  = "https://github.com/klaviyo/openapi/blob/%s/openapi/beta/apis/%s.json"
 )
 
 // opLong builds a command's --help long text: summary, the operation's spec
@@ -161,7 +187,13 @@ func opLong(op *opSpec) string {
 		b.WriteString("\n\n" + op.Description)
 	}
 	fmt.Fprintf(&b, "\n\nCalls %s %s.", op.Method, op.Path)
-	if op.OpID != "" {
+	if op.OpID == "" {
+		return b.String()
+	}
+	if op.Beta {
+		fmt.Fprintf(&b, "\n\nAPI docs:     "+betaDocsURLFmt, op.OpID)
+		fmt.Fprintf(&b, "\nOpenAPI file: "+betaOASURLFmt, api.DefaultBetaRevision, op.OpID)
+	} else {
 		fmt.Fprintf(&b, "\n\nAPI docs:     "+docsURLFmt, api.DefaultRevision, op.OpID)
 		fmt.Fprintf(&b, "\nOpenAPI file: "+oasURLFmt, api.DefaultRevision, op.OpID)
 	}
