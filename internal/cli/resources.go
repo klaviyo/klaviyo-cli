@@ -121,7 +121,7 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		var body []byte
 		if op.HasBody {
 			var err error
-			if body, err = assembleBody(cmd, op, data, bodyStrs, bodyArrs); err != nil {
+			if body, err = assembleBody(cmd, op, args, data, bodyStrs, bodyArrs); err != nil {
 				return err
 			}
 		}
@@ -172,8 +172,10 @@ func opLong(op *opSpec) string {
 // per-attribute body flags. A whole-body --data (inline JSON, @file, '-')
 // is passed through untouched and cannot combine with body flags;
 // otherwise flags and --data field pairs merge into one object (conflicts
-// error), and data.type is auto-filled from the spec when absent.
-func assembleBody(cmd *cobra.Command, op *opSpec, data []string, bodyStrs []*string, bodyArrs []*[]string) ([]byte, error) {
+// error), and data.type is auto-filled from the spec when absent. For
+// PATCH updates of a resource, JSON:API also requires data.id to match the
+// URL, so it is auto-filled from the id path argument when absent.
+func assembleBody(cmd *cobra.Command, op *opSpec, args []string, data []string, bodyStrs []*string, bodyArrs []*[]string) ([]byte, error) {
 	changed := false
 	for _, f := range op.Body {
 		if cmd.Flags().Changed(f.Flag) {
@@ -220,14 +222,35 @@ func assembleBody(cmd *cobra.Command, op *opSpec, data []string, bodyStrs []*str
 	if len(root) == 0 {
 		return nil, nil
 	}
-	if op.BodyType != "" {
-		if d, ok := root["data"].(map[string]any); ok {
+	if d, ok := root["data"].(map[string]any); ok {
+		if op.BodyType != "" {
 			if _, has := d["type"]; !has {
 				d["type"] = op.BodyType
 			}
 		}
+		if id := bodyIDFromPath(op, args); id != "" {
+			if _, has := d["id"]; !has {
+				d["id"] = id
+			}
+		}
 	}
 	return json.Marshal(root)
+}
+
+// bodyIDFromPath returns the id path argument for PATCH operations on a
+// single resource (path ending in /{id}), where JSON:API requires data.id
+// to match the URL. Relationship endpoints ({id}/relationships/...) are
+// excluded: their body ids name the related resources, not the path one.
+func bodyIDFromPath(op *opSpec, args []string) string {
+	if op.Method != "PATCH" || !strings.HasSuffix(op.Path, "/{id}") {
+		return ""
+	}
+	for i, p := range op.PathParams {
+		if p == "id" {
+			return args[i]
+		}
+	}
+	return ""
 }
 
 // convertBodyValue parses a flag value according to its schema type, so

@@ -236,6 +236,26 @@ func TestOpLongIncludesDescriptionAndDocLinks(t *testing.T) {
 	}
 }
 
+func TestUpdateBodyInjectsIDFromPathArg(t *testing.T) {
+	rec := apiServer(t, 200, `{}`)
+	op := &opSpec{
+		Group: "widgets", Name: "update", Method: "PATCH", Path: "/api/widgets/{id}",
+		PathParams: []string{"id"},
+		HasBody:    true, BodyType: "widget",
+		Body: []bodyFieldSpec{{"name", "name", "string", "widget name"}},
+	}
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs([]string{"W123", "--name", "Widget"})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"data":{"attributes":{"name":"Widget"},"id":"W123","type":"widget"}}`
+	if rec.body != want {
+		t.Errorf("body = %s, want %s", rec.body, want)
+	}
+}
+
 func TestRunPaginatedMergesPages(t *testing.T) {
 	doer := &fakeDoer{pages: []string{
 		`{"data":[{"id":"1"}],"links":{"next":"https://a.klaviyo.com/api/profiles?page%5Bcursor%5D=abc"}}`,
