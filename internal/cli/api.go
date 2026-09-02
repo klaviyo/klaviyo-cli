@@ -73,7 +73,7 @@ Examples:
 	return cmd
 }
 
-const dataFlagHelp = "request body: repeatable path=value with dots nesting objects (':=' for JSON values), or a single inline JSON, @file, or '-' for stdin"
+const dataFlagHelp = "request body: repeatable path=value pairs rooted at the body's top level, so attributes need their full path (e.g. data.attributes.name=X; dots nest objects, ':=' assigns JSON values), or a single inline JSON, @file, or '-' for stdin"
 
 // isWholeBody reports whether the --data values are a single argument
 // supplying the whole body (stdin, @file, or inline JSON) rather than
