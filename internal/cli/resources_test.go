@@ -29,9 +29,26 @@ func TestGeneratedCommandsAreUnique(t *testing.T) {
 			t.Errorf("duplicate command %s", key)
 		}
 		seen[key] = true
+		if op.Beta {
+			t.Errorf("stable op %s marked Beta", key)
+		}
 	}
 	if len(resourceOps) == 0 {
 		t.Fatal("no generated operations; run go generate ./...")
+	}
+	betaSeen := map[string]bool{}
+	for _, op := range betaResourceOps {
+		key := op.Group + "/" + op.Name
+		if betaSeen[key] {
+			t.Errorf("duplicate beta command %s", key)
+		}
+		betaSeen[key] = true
+		if !op.Beta {
+			t.Errorf("beta op %s not marked Beta", key)
+		}
+	}
+	if len(betaResourceOps) == 0 {
+		t.Fatal("no generated beta operations; regenerate with -beta-spec")
 	}
 }
 
@@ -253,6 +270,86 @@ func TestUpdateBodyInjectsIDFromPathArg(t *testing.T) {
 	want := `{"data":{"attributes":{"name":"Widget"},"id":"W123","type":"widget"}}`
 	if rec.body != want {
 		t.Errorf("body = %s, want %s", rec.body, want)
+	}
+}
+
+func TestOpLongBetaLinks(t *testing.T) {
+	op := &opSpec{
+		Group: "campaigns", Name: "get-campaigns", OpID: "get_campaigns_beta",
+		Summary: "Get Campaigns", Method: "GET", Path: "/api/campaigns", Beta: true,
+	}
+	long := newResourceOpCmd(op).Long
+	for _, want := range []string{
+		// Beta docs pages exist only on the docs site's current version.
+		"https://developers.klaviyo.com/en/reference/get_campaigns_beta",
+		"https://github.com/klaviyo/openapi/blob/" + api.DefaultBetaRevision + "/openapi/beta/apis/get_campaigns_beta.json",
+	} {
+		if !strings.Contains(long, want) {
+			t.Errorf("Long missing %q:\n%s", want, long)
+		}
+	}
+	if strings.Contains(long, "/en/v") {
+		t.Errorf("beta docs link must not be versioned:\n%s", long)
+	}
+}
+
+func TestBetaOpSendsBetaRevision(t *testing.T) {
+	rec := apiServer(t, 200, `{}`)
+	op := &opSpec{Group: "campaigns", Name: "get-campaigns", Method: "GET", Path: "/api/campaigns", Beta: true}
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs(nil)
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if rec.revision != api.DefaultBetaRevision {
+		t.Errorf("revision = %q, want %q", rec.revision, api.DefaultBetaRevision)
+	}
+}
+
+func TestBetaOpRespectsRevisionFlag(t *testing.T) {
+	rec := apiServer(t, 200, `{}`)
+	opts.revision = "2027-01-15.pre"
+	t.Cleanup(func() { opts.revision = "" })
+	op := &opSpec{Group: "campaigns", Name: "get-campaigns", Method: "GET", Path: "/api/campaigns", Beta: true}
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs(nil)
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if rec.revision != "2027-01-15.pre" {
+		t.Errorf("revision = %q, want explicit override to win", rec.revision)
+	}
+}
+
+func TestStableOpSendsDefaultRevision(t *testing.T) {
+	rec := apiServer(t, 200, `{}`)
+	op := &opSpec{Group: "widgets", Name: "list", Method: "GET", Path: "/api/widgets"}
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs(nil)
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if rec.revision != api.DefaultRevision {
+		t.Errorf("revision = %q, want %q", rec.revision, api.DefaultRevision)
+	}
+}
+
+func TestBetaCommandsMountedUnderBetaParent(t *testing.T) {
+	root := newRootCmd()
+	betaCmd, _, err := root.Find([]string{"beta"})
+	if err != nil || betaCmd.Use != "beta" {
+		t.Fatalf("beta parent not found: %v", err)
+	}
+	// A beta group must exist under beta and not at the root: campaigns
+	// exists in both surfaces, so check a beta-only verb resolves.
+	if _, _, err := root.Find([]string{"beta", "campaigns", "get-campaigns"}); err != nil {
+		t.Errorf("beta campaigns get-campaigns not found: %v", err)
+	}
+	if cmd, _, _ := root.Find([]string{"campaigns", "get-campaigns"}); cmd != nil && cmd.Name() == "get-campaigns" {
+		t.Error("beta command leaked into the stable campaigns group")
 	}
 }
 

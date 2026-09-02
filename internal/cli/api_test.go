@@ -16,6 +16,7 @@ type recordedRequest struct {
 	query        url.Values
 	body         string
 	contentType  string
+	revision     string
 }
 
 // apiServer records requests and returns the given response.
@@ -26,6 +27,7 @@ func apiServer(t *testing.T, status int, respBody string) *recordedRequest {
 		body, _ := io.ReadAll(r.Body)
 		rec.method, rec.path, rec.query = r.Method, r.URL.Path, r.URL.Query()
 		rec.body, rec.contentType = string(body), r.Header.Get("Content-Type")
+		rec.revision = r.Header.Get("revision")
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(respBody))
 	}))
