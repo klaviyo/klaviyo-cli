@@ -11,31 +11,33 @@ With the CLI, you can:
 
 ## Installation
 
-**Binary releases** (amd64 and arm64) are on the [Releases page](https://github.com/klaviyo/klaviyo-cli/releases/latest). The commands below fetch them with the [GitHub CLI](https://cli.github.com); downloading the archive for your platform from the Releases page by hand and unpacking it the same way works too.
+**Binary releases** (amd64 and arm64) are on the [Releases page](https://github.com/klaviyo/klaviyo-cli/releases/latest). The commands below stream the release straight to the install directory with the [GitHub CLI](https://cli.github.com) — they leave nothing behind in the working directory and are safe to re-run for upgrades.
 
 **macOS**
 
 ```bash
-gh release download -R klaviyo/klaviyo-cli --pattern '*darwin_arm64*'   # Intel Macs: darwin_amd64
-sudo tar -xzf klaviyo-cli_*_darwin_arm64.tar.gz -C /usr/local/bin klaviyo   # or -C any directory on your PATH
+# Intel Macs: darwin_amd64
+gh release download -R klaviyo/klaviyo-cli --pattern '*darwin_arm64.tar.gz' -O - | sudo tar -xz -C /usr/local/bin klaviyo
 ```
-
-The binaries are not notarized yet, so if you download with a browser instead of `gh`, macOS quarantines the file — clear it with `sudo xattr -d com.apple.quarantine /usr/local/bin/klaviyo`.
 
 **Linux**
 
 ```bash
-gh release download -R klaviyo/klaviyo-cli --pattern '*linux_amd64*'    # ARM: linux_arm64
-sudo tar -xzf klaviyo-cli_*_linux_amd64.tar.gz -C /usr/local/bin klaviyo    # or -C any directory on your PATH
+# ARM: linux_arm64
+gh release download -R klaviyo/klaviyo-cli --pattern '*linux_amd64.tar.gz' -O - | sudo tar -xz -C /usr/local/bin klaviyo
 ```
+
+`-C` can point at any directory on your PATH; drop `sudo` for one you own.
 
 **Windows** (PowerShell)
 
 ```powershell
-gh release download -R klaviyo/klaviyo-cli --pattern '*windows_amd64*'  # ARM: windows_arm64
-Expand-Archive klaviyo-cli_*_windows_amd64.zip -DestinationPath klaviyo-cli-release
-Move-Item klaviyo-cli-release\klaviyo.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\"   # or any directory on your PATH
+gh release download -R klaviyo/klaviyo-cli --pattern '*windows_amd64.zip' -O klaviyo-cli.zip --clobber  # ARM: windows_arm64
+Expand-Archive klaviyo-cli.zip -DestinationPath klaviyo-cli-release -Force
+Move-Item -Force klaviyo-cli-release\klaviyo.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\"   # or any directory on your PATH
 ```
+
+Downloading an archive from the Releases page by hand works too — unpack it and put the `klaviyo` binary on your PATH. The binaries are not notarized yet, so macOS quarantines browser-downloaded files (`gh` downloads are not quarantined) — clear it with `sudo xattr -d com.apple.quarantine /usr/local/bin/klaviyo`.
 
 **From source** (Go 1.25+):
 
@@ -45,7 +47,9 @@ go install github.com/klaviyo/klaviyo-cli/cmd/klaviyo@latest
 
 ### Upgrading
 
-The CLI checks GitHub for a newer release at most once per day and prints a notice to stderr — only on interactive terminals, never in CI or when piped. It never self-updates: upgrade through the channel you installed with. Opt out of the check with `KLAVIYO_NO_UPDATE_NOTIFIER=1`.
+To upgrade, re-run the install command for your platform — it fetches the latest release and overwrites the installed binary in place (same for `go install ...@latest`). Upgrade through the channel you installed with.
+
+The CLI checks GitHub for a newer release at most once per day and prints a notice to stderr — only on interactive terminals, never in CI or when piped. It never self-updates. Opt out of the check with `KLAVIYO_NO_UPDATE_NOTIFIER=1`.
 
 ## Quickstart
 
@@ -85,7 +89,6 @@ Core commands:
 | `klaviyo auth list` | List configured accounts |
 | `klaviyo auth switch <account>` | Set the default account |
 | `klaviyo auth status` | Verify credentials for the selected account |
-| `klaviyo auth migrate` | Move file-stored API keys into the OS keychain |
 | `klaviyo api [method] <path>` | Raw authenticated API request (defaults to GET) |
 | `klaviyo config` | Show or edit CLI configuration (`--list`, `--set`, `-e`) |
 | `klaviyo open <shortcut>` | Open Klaviyo dashboard or docs pages in your browser |
@@ -632,7 +635,7 @@ The key used for a request resolves in this order:
 2. `KLAVIYO_API_KEY` environment variable
 3. The selected account's stored key, where the account is chosen by `--account` flag, then `KLAVIYO_ACCOUNT`, then the configured default
 
-Profiles live in `~/.config/klaviyo/config.toml`; the API keys themselves are stored in the OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). Where no keychain is available — headless Linux, containers — pass `--insecure-storage` to `auth login` to store the key in the config file instead, written with `0600` permissions. Keys stored in the file by older CLI versions keep working; run `klaviyo auth migrate` to move them into the keychain. In CI, skip stored accounts entirely and set `KLAVIYO_API_KEY`.
+Profiles live in `~/.config/klaviyo/config.toml`; the API keys themselves are stored in the OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). Where no keychain is available — headless Linux, containers — pass `--insecure-storage` to `auth login` to store the key in the config file instead, written with `0600` permissions. In CI, skip stored accounts entirely and set `KLAVIYO_API_KEY`.
 
 ## Output and scripting
 

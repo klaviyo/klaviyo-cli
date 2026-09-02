@@ -33,7 +33,6 @@ func newAuthCmd() *cobra.Command {
 		newAuthListCmd(),
 		newAuthSwitchCmd(),
 		newAuthStatusCmd(),
-		newAuthMigrateCmd(),
 	)
 	return cmd
 }
@@ -228,7 +227,6 @@ func newAuthListCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "No accounts configured; run `klaviyo auth login`")
 				return nil
 			}
-			fileStored := false
 			for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
 				acct := cfg.Accounts[name]
 				marker := " "
@@ -238,13 +236,8 @@ func newAuthListCmd() *cobra.Command {
 				storage := "file"
 				if acct.KeyStorage == config.KeyStorageKeyring {
 					storage = "keyring"
-				} else {
-					fileStored = true
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "%s %-20s %-8s %-8s %s\n", marker, name, acct.ID, storage, acct.Organization)
-			}
-			if fileStored {
-				fmt.Fprintln(cmd.OutOrStdout(), "hint: run `klaviyo auth migrate` to move file-stored keys into the OS keychain")
 			}
 			return nil
 		},
@@ -271,50 +264,6 @@ func newAuthSwitchCmd() *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Default account is now %q\n", name)
-			return nil
-		},
-	}
-}
-
-func newAuthMigrateCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "migrate",
-		Short: "Move file-stored API keys into the OS keychain",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			var failed []string
-			migrated := 0
-			for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
-				acct := cfg.Accounts[name]
-				if acct.APIKey == "" {
-					continue
-				}
-				if err := keyring.Set(name, acct.APIKey); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: %q: %v\n", name, err)
-					failed = append(failed, name)
-					continue
-				}
-				acct.APIKey = ""
-				acct.KeyStorage = config.KeyStorageKeyring
-				cfg.Accounts[name] = acct
-				migrated++
-				fmt.Fprintf(cmd.OutOrStdout(), "Moved key for %q into the OS keychain\n", name)
-			}
-			if migrated > 0 {
-				if err := cfg.Save(); err != nil {
-					return err
-				}
-			}
-			if len(failed) > 0 {
-				return fmt.Errorf("could not migrate %s; is an OS keychain available? (macOS Keychain, Windows Credential Manager, or a Linux Secret Service)",
-					strings.Join(failed, ", "))
-			}
-			if migrated == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No file-stored keys to migrate")
-			}
 			return nil
 		},
 	}

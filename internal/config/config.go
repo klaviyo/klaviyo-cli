@@ -28,7 +28,7 @@ type Account struct {
 	// empty when the key lives in the OS keychain.
 	APIKey string `toml:"api_key,omitempty"`
 	// KeyStorage is KeyStorageKeyring when the key is in the OS keychain,
-	// empty for file storage (the pre-keychain format).
+	// empty for file storage (--insecure-storage profiles).
 	KeyStorage string `toml:"key_storage,omitempty"`
 }
 
