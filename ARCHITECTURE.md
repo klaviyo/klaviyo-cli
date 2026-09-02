@@ -10,7 +10,6 @@ internal/cli           Cobra command tree; flag parsing, output rendering
 internal/config        config.toml read/write (account profiles, default account)
 internal/keyring       OS keychain storage for account API keys
 internal/api           HTTP client: auth header, revision header, retries
-api/openapi            vendored Klaviyo OpenAPI spec (source of generated code)
 ```
 
 Dependency direction: `cli → {config, keyring, api}`. The leaf packages do not import each other or `cli`.
@@ -41,10 +40,11 @@ Key resolution precedence (`internal/cli/root.go`):
 
 ## Generated resource commands
 
-Every operation in the vendored spec (345 across 23 tags at revision
-2026-07-15) becomes a command, following the Stripe CLI's build-time-codegen
-model. The generator (`klaviyo-cli-gen`, maintained in an internal Klaviyo
-repository) emits:
+Every operation in the Klaviyo OpenAPI stable spec (345 across 23 tags at
+revision 2026-07-15) becomes a command, following the Stripe CLI's
+build-time-codegen model. The generator (`klaviyo-cli-gen`, maintained in an
+internal Klaviyo repository) reads the published spec — it is not vendored
+here — and emits:
 
 - `internal/cli/resources_gen.go` — a data table of `opSpec` entries (group,
   name, method, path, params); a generic executor in `resources.go` turns each
