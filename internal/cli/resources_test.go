@@ -216,6 +216,26 @@ func TestBodyFlagsAloneStillInjectType(t *testing.T) {
 	}
 }
 
+func TestOpLongIncludesDescriptionAndDocLinks(t *testing.T) {
+	op := &opSpec{
+		Group: "lists", Name: "update", OpID: "update_list", Summary: "Update List",
+		Description: "Update the name of a list.\n\nRate limits:\nBurst: 10/s",
+		Method:      "PATCH", Path: "/api/lists/{id}", PathParams: []string{"id"},
+	}
+	long := newResourceOpCmd(op).Long
+	for _, want := range []string{
+		"Update List",
+		"Update the name of a list.",
+		"Calls PATCH /api/lists/{id}.",
+		"https://developers.klaviyo.com/en/v" + api.DefaultRevision + "/reference/update_list",
+		"https://github.com/klaviyo/openapi/blob/" + api.DefaultRevision + "/openapi/stable/apis/update_list.json",
+	} {
+		if !strings.Contains(long, want) {
+			t.Errorf("Long missing %q:\n%s", want, long)
+		}
+	}
+}
+
 func TestUpdateBodyInjectsIDFromPathArg(t *testing.T) {
 	rec := apiServer(t, 200, `{}`)
 	op := &opSpec{

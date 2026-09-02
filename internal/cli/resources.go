@@ -37,17 +37,19 @@ type bodyFieldSpec struct {
 
 // opSpec describes one generated API operation command.
 type opSpec struct {
-	Group      string
-	Name       string
-	Summary    string
-	Method     string
-	Path       string
-	PathParams []string
-	Query      []queryParamSpec
-	HasBody    bool
-	BodyType   string // JSON:API resource type, auto-filled into data.type
-	Body       []bodyFieldSpec
-	Paginated  bool
+	Group       string
+	Name        string
+	OpID        string // spec operationId; keys the docs page and OAS file URLs
+	Summary     string
+	Description string // spec description, cleaned for terminal output
+	Method      string
+	Path        string
+	PathParams  []string
+	Query       []queryParamSpec
+	HasBody     bool
+	BodyType    string // JSON:API resource type, auto-filled into data.type
+	Body        []bodyFieldSpec
+	Paginated   bool
 }
 
 // maxPages bounds --paginate as a runaway-loop backstop.
@@ -82,7 +84,7 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: op.Summary,
-		Long:  fmt.Sprintf("%s\n\nCalls %s %s.", op.Summary, op.Method, op.Path),
+		Long:  opLong(op),
 		Args:  cobra.ExactArgs(len(op.PathParams)),
 	}
 
@@ -137,6 +139,33 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		return printResponse(cmd, resp)
 	}
 	return cmd
+}
+
+// Reference links keyed by an operation's spec operationId: its page on the
+// developer docs (URL slugs match operationIds 1:1) and its self-contained
+// per-endpoint OAS file in the klaviyo/openapi repo. Both are pinned to the
+// revision these commands were generated from — the docs by version prefix
+// (the current revision's versioned URL redirects to the plain page), the
+// OAS file by its revision branch.
+const (
+	docsURLFmt = "https://developers.klaviyo.com/en/v%s/reference/%s"
+	oasURLFmt  = "https://github.com/klaviyo/openapi/blob/%s/openapi/stable/apis/%s.json"
+)
+
+// opLong builds a command's --help long text: summary, the operation's spec
+// description, the HTTP call it makes, and reference links.
+func opLong(op *opSpec) string {
+	var b strings.Builder
+	b.WriteString(op.Summary)
+	if op.Description != "" {
+		b.WriteString("\n\n" + op.Description)
+	}
+	fmt.Fprintf(&b, "\n\nCalls %s %s.", op.Method, op.Path)
+	if op.OpID != "" {
+		fmt.Fprintf(&b, "\n\nAPI docs:     "+docsURLFmt, api.DefaultRevision, op.OpID)
+		fmt.Fprintf(&b, "\nOpenAPI file: "+oasURLFmt, api.DefaultRevision, op.OpID)
+	}
+	return b.String()
 }
 
 // assembleBody builds the request body from --data and the generated
