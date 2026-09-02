@@ -364,14 +364,13 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 
 </details>
 <details>
-<summary><strong><code>images</code></strong> — 5 commands</summary>
+<summary><strong><code>images</code></strong> — 4 commands</summary>
 
 | Command | Description |
 | --- | --- |
 | `klaviyo images get` | Get Image |
 | `klaviyo images list` | Get Images |
 | `klaviyo images update` | Update Image |
-| `klaviyo images upload-image-from-file` | Upload Image From File |
 | `klaviyo images upload-image-from-url` | Upload Image From URL |
 
 </details>
