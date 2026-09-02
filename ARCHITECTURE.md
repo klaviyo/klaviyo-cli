@@ -1,6 +1,6 @@
 # Architecture
 
-The Klaviyo CLI is a Go binary modeled on the Stripe CLI: it wraps the Klaviyo API, manages credentials for multiple accounts, and exposes a typed command for every API operation plus a raw `api` escape hatch.
+The Klaviyo CLI is a Go binary: it wraps the Klaviyo API, manages credentials for multiple accounts, and exposes a typed command for every API operation plus a raw `api` escape hatch.
 
 ## Components
 
@@ -40,11 +40,12 @@ Key resolution precedence (`internal/cli/root.go`):
 
 ## Generated resource commands
 
-Every operation in the Klaviyo OpenAPI stable spec (345 across 23 tags at
-revision 2026-07-15) becomes a command, following the Stripe CLI's
-build-time-codegen model. The generator (`klaviyo-cli-gen`, maintained in an
-internal Klaviyo repository) reads the published spec — it is not vendored
-here — and emits:
+Every operation in the vendored spec (344 across 23 tags at revision
+2026-07-15) becomes a command. The one exception: operations with a `multipart/form-data` request
+body (currently just Upload Image From File) are excluded, since the client
+speaks only JSON:API — `images upload-image-from-url` covers that case via
+base64 data URIs. The generator (`klaviyo-cli-gen`, maintained in an internal
+Klaviyo repository) emits:
 
 - `internal/cli/resources_gen.go` — a data table of `opSpec` entries (group,
   name, method, path, params); a generic executor in `resources.go` turns each
@@ -59,7 +60,7 @@ positional args; query params become flags (`page[size]` → `--page-size`);
 list endpoints get `--paginate`, which follows `links.next` cursors and
 merges every page's `data` array.
 
-Request bodies, Stripe CLI-style: the generator walks each operation's
+Request bodies: the generator walks each operation's
 requestBody schema (resolving `$ref` chains and `allOf` merges) and emits a
 `bodyFieldSpec` per scalar or scalar-array leaf under `data.attributes` —
 kebab-case within a segment, dots between (`--opt-in-process`,
