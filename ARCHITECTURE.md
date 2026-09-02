@@ -89,6 +89,6 @@ release.
 ## Roadmap
 
 1. **Docs site** — `docs/` static site in the style of docs.stripe.com/stripe-cli.
-2. **Distribution** — Homebrew tap, .deb/.rpm, Docker image (all wired in `.goreleaser.yaml` once the repo is public).
+2. **Distribution** — Homebrew tap, .deb/.rpm, Docker image (all wired in `.goreleaser.yaml`).
 3. **OAuth login** — browser-based flow as an alternative to pasting private keys.
 4. **Headless workflows** — fold in the resources-as-files model from [headless-klaviyo](https://github.com/klaviyo/headless-klaviyo) as `pull`/`push` command groups.
