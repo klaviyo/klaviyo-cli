@@ -53,11 +53,21 @@ func newRootCmd() *cobra.Command {
 then call any endpoint or resource command against it.
 
 Get started:
-  klaviyo auth login          # store an API key for an account
-  klaviyo api /api/metrics/   # make an authenticated request`,
+  klaviyo auth login          # store an API key for an account (interactive)
+  klaviyo metrics list        # typed commands for every API operation
+  klaviyo lists create --name Newsletter   # body attributes are flags
+  klaviyo api /api/metrics/   # or call any endpoint directly
+
+In scripts, CI, or agents, skip login and set KLAVIYO_API_KEY instead —
+no stored account needed.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// A non-empty Version makes cobra register --version on the root
+		// (with the -v shorthand, which no other root flag claims); the
+		// template makes it print the same line as `klaviyo version`.
+		Version: version,
 	}
+	root.SetVersionTemplate(versionString())
 
 	pf := root.PersistentFlags()
 	pf.StringVarP(&opts.account, "account", "a", "", "named account to use (default: KLAVIYO_ACCOUNT env, then configured default)")

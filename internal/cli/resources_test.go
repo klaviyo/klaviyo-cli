@@ -79,8 +79,8 @@ func TestResourceCmdMapsFlagsToQueryParams(t *testing.T) {
 	op := &opSpec{
 		Group: "widgets", Name: "list", Method: "GET", Path: "/api/widgets",
 		Query: []queryParamSpec{
-			{"page[size]", "page-size", "page size"},
-			{"filter", "filter", "filter"},
+			{"page[size]", "page-size", "page size", false},
+			{"filter", "filter", "filter", false},
 		},
 		Paginated: true,
 	}
@@ -98,6 +98,71 @@ func TestResourceCmdMapsFlagsToQueryParams(t *testing.T) {
 	}
 }
 
+func TestRequiredQueryFlagEnforced(t *testing.T) {
+	rec := apiServer(t, 200, `{"data":[]}`)
+	op := &opSpec{
+		Group: "widgets", Name: "list", Method: "GET", Path: "/api/widgets",
+		Query: []queryParamSpec{{"filter", "filter", "filter", true}},
+	}
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs(nil)
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), `required flag(s) "filter" not set`) {
+		t.Fatalf("err = %v, want required-flag error", err)
+	}
+	if len(rec.query) != 0 && rec.method != "" {
+		t.Error("no request must be sent when a required flag is missing")
+	}
+
+	cmd = newResourceOpCmd(op)
+	cmd.SetArgs([]string{"--filter", "equals(x,'y')"})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := rec.query.Get("filter"); got != "equals(x,'y')" {
+		t.Errorf("filter = %q", got)
+	}
+}
+
+func TestCursorFlagAcceptsNextLink(t *testing.T) {
+	next := "https://a.klaviyo.com/api/profiles?page%5Bsize%5D=2&page%5Bcursor%5D=bmV4dDo6abc"
+	rec := apiServer(t, 200, `{"data":[]}`)
+	op := &opSpec{
+		Group: "widgets", Name: "list", Method: "GET", Path: "/api/widgets",
+		Query: []queryParamSpec{{"page[cursor]", "page-cursor", "cursor", false}},
+	}
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs([]string{"--page-cursor", next})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := rec.query.Get("page[cursor]"); got != "bmV4dDo6abc" {
+		t.Errorf("page[cursor] = %q, want extracted cursor", got)
+	}
+}
+
+func TestNormalizeCursor(t *testing.T) {
+	cases := []struct{ name, raw, want string }{
+		{"page[cursor]", "bmV4dDo6abc", "bmV4dDo6abc"}, // bare cursor untouched
+		{"page[cursor]", "https://a.klaviyo.com/api/x?page%5Bcursor%5D=cur1", "cur1"},
+		// Reporting endpoints name the param page_cursor; their links carry it.
+		{"page_cursor", "https://a.klaviyo.com/api/x?page_cursor=cur2", "cur2"},
+		// A page_cursor endpoint given a page[cursor]-style link still works.
+		{"page_cursor", "https://a.klaviyo.com/api/x?page%5Bcursor%5D=cur3", "cur3"},
+		// URL without any cursor param passes through (API will reject it).
+		{"page[cursor]", "https://a.klaviyo.com/api/x?page%5Bsize%5D=2", "https://a.klaviyo.com/api/x?page%5Bsize%5D=2"},
+	}
+	for _, c := range cases {
+		if got := normalizeCursor(c.name, c.raw); got != c.want {
+			t.Errorf("normalizeCursor(%q, %q) = %q, want %q", c.name, c.raw, got, c.want)
+		}
+	}
+}
+
 func TestResourceCmdRequiresPathArgs(t *testing.T) {
 	apiServer(t, 200, `{}`)
 	op := &opSpec{Group: "widgets", Name: "get", Method: "GET", Path: "/api/widgets/{id}", PathParams: []string{"id"}}
@@ -107,6 +172,26 @@ func TestResourceCmdRequiresPathArgs(t *testing.T) {
 	cmd.SetErr(&bytes.Buffer{})
 	if err := cmd.Execute(); err == nil {
 		t.Error("missing path arg must error")
+	}
+}
+
+func TestResourceCmdRejectsEmptyPathArg(t *testing.T) {
+	rec := apiServer(t, 200, `{"data":[]}`)
+	op := &opSpec{Group: "widgets", Name: "get", Method: "GET", Path: "/api/widgets/{id}", PathParams: []string{"id"}}
+	for _, arg := range []string{"", "  "} {
+		cmd := newResourceOpCmd(op)
+		cmd.SetArgs([]string{arg})
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		err := cmd.Execute()
+		if err == nil || !strings.Contains(err.Error(), "<id> must not be empty") {
+			t.Errorf("arg %q: err = %v, want empty-id error", arg, err)
+		}
+	}
+	// An empty id must never reach the API: /api/widgets/{id} with "" is
+	// the collection route, returning the full list for a targeted get.
+	if rec.method != "" {
+		t.Errorf("request sent: %s %s", rec.method, rec.path)
 	}
 }
 
@@ -219,6 +304,36 @@ func TestBodyFlagsValidateTypes(t *testing.T) {
 	}
 	if _, err := runWidgetCreate(t, "--active", "yes"); err == nil || !strings.Contains(err.Error(), "not a valid boolean") {
 		t.Errorf("active err = %v", err)
+	}
+}
+
+func TestJSONBodyFlag(t *testing.T) {
+	op := &opSpec{
+		Group: "segments", Name: "create", Method: "POST", Path: "/api/segments",
+		HasBody: true, BodyType: "segment",
+		Body: []bodyFieldSpec{
+			{"definition", "definition", "json", "segment definition (JSON value) (required)"},
+			{"name", "name", "string", "segment name (required)"},
+		},
+	}
+	rec := apiServer(t, 200, `{}`)
+	cmd := newResourceOpCmd(op)
+	cmd.SetArgs([]string{"--name", "Winback", "--definition", `{"condition_groups":[{"conditions":[]}]}`})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"data":{"attributes":{"definition":{"condition_groups":[{"conditions":[]}]},"name":"Winback"},"type":"segment"}}`
+	if rec.body != want {
+		t.Errorf("body = %s, want %s", rec.body, want)
+	}
+
+	cmd = newResourceOpCmd(op)
+	cmd.SetArgs([]string{"--definition", `{not json`})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "invalid JSON") {
+		t.Errorf("err = %v, want invalid JSON error", err)
 	}
 }
 
@@ -343,12 +458,15 @@ func TestBetaCommandsMountedUnderBetaParent(t *testing.T) {
 	if err != nil || betaCmd.Use != "beta" {
 		t.Fatalf("beta parent not found: %v", err)
 	}
-	// A beta group must exist under beta and not at the root: campaigns
-	// exists in both surfaces, so check a beta-only verb resolves.
-	if _, _, err := root.Find([]string{"beta", "campaigns", "get-campaigns"}); err != nil {
-		t.Errorf("beta campaigns get-campaigns not found: %v", err)
+	// A beta group must exist under beta with GA-style CRUD names. cobra's
+	// Find is lenient (unknown trailing args return the parent without
+	// error), so assert on the resolved command's name, not just on err.
+	cmd, _, err := root.Find([]string{"beta", "campaigns", "list"})
+	if err != nil || cmd.Name() != "list" {
+		t.Errorf("beta campaigns list resolved to %q (err %v)", cmd.Name(), err)
 	}
-	if cmd, _, _ := root.Find([]string{"campaigns", "get-campaigns"}); cmd != nil && cmd.Name() == "get-campaigns" {
+	// A beta-only verb must not leak into the stable campaigns group.
+	if cmd, _, _ := root.Find([]string{"campaigns", "clone-campaign"}); cmd != nil && cmd.Name() == "clone-campaign" {
 		t.Error("beta command leaked into the stable campaigns group")
 	}
 }
@@ -380,6 +498,66 @@ func TestRunPaginatedMergesPages(t *testing.T) {
 	}
 	if len(parsed.Data) != 3 {
 		t.Errorf("merged data = %d items, want 3", len(parsed.Data))
+	}
+	// A complete merge keeps the plain {"data": [...]} shape — links.next
+	// appears only when the page cap truncated the merge.
+	if strings.Contains(out.String(), `"links"`) {
+		t.Errorf("complete merge must not carry links: %s", out.String())
+	}
+}
+
+func TestRunPaginatedMergesIncludedDeduped(t *testing.T) {
+	doer := &fakeDoer{pages: []string{
+		`{"data":[{"id":"1"}],"included":[{"type":"tag","id":"T1"},{"type":"tag","id":"T2"}],"links":{"next":"https://a.klaviyo.com/api/x?page%5Bcursor%5D=p2"}}`,
+		`{"data":[{"id":"2"}],"included":[{"type":"tag","id":"T1"},{"type":"tag","id":"T3"}],"links":{"next":""}}`,
+	}}
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	cmd.SetContext(context.Background())
+
+	if err := runPaginated(cmd, doer, "/api/x", url.Values{}); err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct {
+		Included []struct {
+			Type string `json:"type"`
+			ID   string `json:"id"`
+		} `json:"included"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	// T1 appears on both pages and must merge once.
+	if len(parsed.Included) != 3 {
+		t.Errorf("included = %+v, want 3 deduped items", parsed.Included)
+	}
+
+	// No included on any page: the key must stay absent.
+	doer = &fakeDoer{pages: []string{`{"data":[{"id":"1"}],"links":{"next":""}}`}}
+	out.Reset()
+	if err := runPaginated(cmd, doer, "/api/x", url.Values{}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "included") {
+		t.Errorf("included key must be absent when no page had one:\n%s", out.String())
+	}
+}
+
+func TestRunPaginatedEmptyResultKeepsArray(t *testing.T) {
+	doer := &fakeDoer{pages: []string{`{"data":[],"links":{"next":""}}`}}
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	cmd.SetContext(context.Background())
+
+	if err := runPaginated(cmd, doer, "/api/x", url.Values{}); err != nil {
+		t.Fatal(err)
+	}
+	// data must stay an array on empty merges — {"data": null} breaks
+	// consumers like --jq '.data[]'.
+	if !strings.Contains(out.String(), `"data": []`) && !strings.Contains(out.String(), `"data":[]`) {
+		t.Errorf("empty merge must marshal data as []:\n%s", out.String())
 	}
 }
 
@@ -427,8 +605,9 @@ func TestRunPaginatedIgnoresNextLinkHost(t *testing.T) {
 
 func TestRunPaginatedWarnsAtPageCap(t *testing.T) {
 	doer := &fakeDoer{repeat: `{"data":[{"id":"1"}],"links":{"next":"https://a.klaviyo.com/api/x?page%5Bcursor%5D=again"}}`}
+	out := &bytes.Buffer{}
 	cmd := &cobra.Command{}
-	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetOut(out)
 	errOut := &bytes.Buffer{}
 	cmd.SetErr(errOut)
 	cmd.SetContext(context.Background())
@@ -441,5 +620,18 @@ func TestRunPaginatedWarnsAtPageCap(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "stopped after") {
 		t.Errorf("expected truncation warning, got: %q", errOut.String())
+	}
+	// The capped merge must carry the continuation, JSON:API style, so
+	// scripts can detect truncation and resume from links.next.
+	var parsed struct {
+		Links struct {
+			Next string `json:"next"`
+		} `json:"links"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(parsed.Links.Next, "page%5Bcursor%5D=again") {
+		t.Errorf("capped output missing links.next: %s", out.String())
 	}
 }

@@ -154,6 +154,51 @@ func TestRenderTablePrefersKnownColumns(t *testing.T) {
 	}
 }
 
+func TestTableColumnsScanAllRows(t *testing.T) {
+	// phone_number is null in row 1 but set in row 2: the column must
+	// appear regardless of row order.
+	items := []resourceItem{
+		{ID: "1", Attributes: map[string]any{"phone_number": nil}},
+		{ID: "2", Attributes: map[string]any{"phone_number": "+15550001111"}},
+	}
+	out := &bytes.Buffer{}
+	renderTable(out, items)
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if !strings.Contains(lines[0], "phone_number") {
+		t.Errorf("header = %q, want phone_number column", lines[0])
+	}
+	if !strings.Contains(lines[2], "+15550001111") {
+		t.Errorf("row 2 = %q", lines[2])
+	}
+}
+
+func TestTableObjectColumnsFillLastAsJSON(t *testing.T) {
+	// An object-valued attribute earns a column only when scalar candidates
+	// leave room, rendered as compact JSON.
+	only := []resourceItem{
+		{ID: "1", Attributes: map[string]any{"send_strategy": map[string]any{"method": "static"}}},
+	}
+	out := &bytes.Buffer{}
+	renderTable(out, only)
+	s := out.String()
+	if !strings.Contains(s, "send_strategy") || !strings.Contains(s, `{"method":"static"}`) {
+		t.Errorf("object-only attributes must still render:\n%s", s)
+	}
+
+	// With four scalars available, the object is crowded out.
+	crowded := []resourceItem{
+		{ID: "1", Attributes: map[string]any{
+			"a": "1", "b": "2", "c": "3", "d": "4",
+			"send_strategy": map[string]any{"method": "static"},
+		}},
+	}
+	out.Reset()
+	renderTable(out, crowded)
+	if strings.Contains(out.String(), "send_strategy") {
+		t.Errorf("object must not displace scalar columns:\n%s", out.String())
+	}
+}
+
 func stubTable(t *testing.T, render bool) {
 	t.Helper()
 	old := shouldRenderTable
@@ -206,20 +251,75 @@ func TestPrintResponseSingleResourceStaysJSON(t *testing.T) {
 	}
 }
 
-func TestPrintResponseJQSkippedOnError(t *testing.T) {
+func TestTableFooterShowsNextCursor(t *testing.T) {
+	stubTable(t, true)
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	body := `{"data":[{"id":"1","attributes":{"name":"x"}}],` +
+		`"links":{"next":"https://a.klaviyo.com/api/profiles?page%5Bsize%5D=2&page%5Bcursor%5D=bmV4dDo6abc"}}`
+	if err := printResponse(cmd, &api.Response{StatusCode: 200, Body: []byte(body)}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errOut.String(), "--page-cursor bmV4dDo6abc") {
+		t.Errorf("stderr missing continuation hint:\n%s", errOut.String())
+	}
+	if strings.Contains(out.String(), "bmV4dDo6abc") {
+		t.Errorf("cursor must not pollute stdout table:\n%s", out.String())
+	}
+
+	// Last page: no links.next, no hint.
+	errOut.Reset()
+	last := `{"data":[{"id":"1","attributes":{"name":"x"}}],"links":{"next":""}}`
+	if err := printResponse(cmd, &api.Response{StatusCode: 200, Body: []byte(last)}); err != nil {
+		t.Fatal(err)
+	}
+	if errOut.String() != "" {
+		t.Errorf("no hint expected on the last page:\n%s", errOut.String())
+	}
+}
+
+func TestPrintResponseJQEmptySuccessBody(t *testing.T) {
 	stubTable(t, false)
-	opts.jq = ".data"
+	opts.jq = ".data.id"
 	t.Cleanup(func() { opts.jq = "" })
 
 	out := &bytes.Buffer{}
 	cmd := &cobra.Command{}
 	cmd.SetOut(out)
+	// tags update returns 204 No Content: --jq must print nothing and
+	// succeed, not fail a request that worked.
+	if err := printResponse(cmd, &api.Response{StatusCode: 204, Body: nil}); err != nil {
+		t.Fatalf("err = %v, want nil on empty success body", err)
+	}
+	if out.String() != "" {
+		t.Errorf("stdout = %q, want empty", out.String())
+	}
+}
+
+func TestPrintResponseJQErrorBodyGoesToStderr(t *testing.T) {
+	stubTable(t, false)
+	opts.jq = ".data.id"
+	t.Cleanup(func() { opts.jq = "" })
+
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
 	resp := &api.Response{StatusCode: 404, Body: []byte(`{"errors":[{"detail":"not found"}]}`)}
 	err := printResponse(cmd, resp)
 	if err == nil || err.Error() != "HTTP 404" {
 		t.Fatalf("err = %v, want HTTP 404", err)
 	}
-	if !strings.Contains(out.String(), "not found") {
-		t.Errorf("error body must be printed raw, not jq-filtered:\n%s", out.String())
+	// With --jq set, stdout is reserved for the filtered result: a script's
+	// ID=$(... --jq .data.id) must capture nothing on error, not the blob.
+	if out.String() != "" {
+		t.Errorf("stdout must stay empty on error with --jq:\n%s", out.String())
+	}
+	if !strings.Contains(errOut.String(), "not found") {
+		t.Errorf("error body must be printed raw to stderr, not jq-filtered:\n%s", errOut.String())
 	}
 }

@@ -69,7 +69,7 @@ Examples:
 	}
 	cmd.Flags().StringArrayVarP(&data, "data", "d", nil, dataFlagHelp)
 	cmd.Flags().StringArrayVarP(&queries, "query", "q", nil, "query parameter as key=value (repeatable)")
-	cmd.Flags().BoolVar(&paginate, "paginate", false, "follow cursor pagination and merge all pages' data (GET only)")
+	cmd.Flags().BoolVar(&paginate, "paginate", false, "follow cursor pagination and merge all pages' data and included (meta is per-page and dropped; GET only)")
 	return cmd
 }
 

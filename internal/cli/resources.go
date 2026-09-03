@@ -18,11 +18,13 @@ import (
 )
 
 // queryParamSpec pairs an API query parameter name (e.g. "page[size]") with
-// its CLI flag name (e.g. "page-size") and one-line help text.
+// its CLI flag name (e.g. "page-size"), one-line help text, and whether the
+// spec marks the parameter required (enforced client-side).
 type queryParamSpec struct {
-	Name string
-	Flag string
-	Help string
+	Name     string
+	Flag     string
+	Help     string
+	Required bool
 }
 
 // bodyFieldSpec is one flag-able request-body attribute: its dot path under
@@ -103,12 +105,18 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		Use:   use,
 		Short: op.Summary,
 		Long:  opLong(op),
-		Args:  cobra.ExactArgs(len(op.PathParams)),
+		Args:  cobra.MatchAll(cobra.ExactArgs(len(op.PathParams)), nonEmptyArgs(op.PathParams)),
 	}
 
 	queryFlags := make([]*string, len(op.Query))
 	for i, q := range op.Query {
 		queryFlags[i] = cmd.Flags().String(q.Flag, "", q.Help)
+		if q.Required {
+			// Fail fast in cobra instead of burning an API round-trip on a
+			// guaranteed 400. Only errors on a flag name cobra doesn't know,
+			// which can't happen for a flag registered one line up.
+			_ = cmd.MarkFlagRequired(q.Flag)
+		}
 	}
 	var data []string
 	bodyStrs := make([]*string, len(op.Body))
@@ -125,7 +133,7 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 	}
 	var paginate bool
 	if op.Paginated {
-		cmd.Flags().BoolVar(&paginate, "paginate", false, "follow cursor pagination and merge all pages' data")
+		cmd.Flags().BoolVar(&paginate, "paginate", false, "follow cursor pagination and merge all pages' data and included (meta is per-page and dropped)")
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -133,7 +141,11 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 		query := url.Values{}
 		for i, q := range op.Query {
 			if *queryFlags[i] != "" {
-				query.Set(q.Name, *queryFlags[i])
+				val := *queryFlags[i]
+				if q.Name == "page[cursor]" || q.Name == "page_cursor" {
+					val = normalizeCursor(q.Name, val)
+				}
+				query.Set(q.Name, val)
 			}
 		}
 		var body []byte
@@ -286,9 +298,17 @@ func bodyIDFromPath(op *opSpec, args []string) string {
 }
 
 // convertBodyValue parses a flag value according to its schema type, so
-// numbers and booleans reach the API as JSON numbers and booleans.
+// numbers and booleans reach the API as JSON numbers and booleans, and
+// json-typed flags (whole attributes that don't flatten into typed flags,
+// like a segment definition) carry any raw JSON value.
 func convertBodyValue(typ, raw, flag string) (any, error) {
 	switch typ {
+	case "json":
+		var v any
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			return nil, fmt.Errorf("--%s: invalid JSON: %v", flag, err)
+		}
+		return v, nil
 	case "integer", "number":
 		var n json.Number
 		if err := json.Unmarshal([]byte(raw), &n); err != nil {
@@ -308,6 +328,45 @@ func convertBodyValue(typ, raw, flag string) (any, error) {
 	}
 }
 
+// nonEmptyArgs rejects empty (or whitespace-only) positional path
+// parameters: an empty id would otherwise collapse /api/lists/{id} onto the
+// collection route and silently return the full list, exit 0 — a classic
+// footgun when a failed earlier command left a shell variable empty.
+func nonEmptyArgs(params []string) cobra.PositionalArgs {
+	return func(_ *cobra.Command, args []string) error {
+		for i, a := range args {
+			if strings.TrimSpace(a) == "" {
+				return fmt.Errorf("<%s> must not be empty", params[i])
+			}
+		}
+		return nil
+	}
+}
+
+// normalizeCursor lets a cursor flag accept the whole links.next URL a
+// previous response returned, extracting the actual cursor from it — the
+// same courtesy Klaviyo's SDKs extend. A bare cursor passes through
+// untouched (real cursors never contain "://"). name is the endpoint's
+// cursor parameter ("page[cursor]" on most endpoints, "page_cursor" on
+// reporting), with the common spelling as fallback.
+func normalizeCursor(name, raw string) string {
+	if !strings.HasPrefix(raw, "https://") && !strings.HasPrefix(raw, "http://") {
+		return raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	q := u.Query()
+	if v := q.Get(name); v != "" {
+		return v
+	}
+	if v := q.Get("page[cursor]"); v != "" {
+		return v
+	}
+	return raw
+}
+
 // resolvePath substitutes {param} placeholders with positional args.
 func resolvePath(path string, params, args []string) string {
 	for i, p := range params {
@@ -319,7 +378,12 @@ func resolvePath(path string, params, args []string) string {
 // runPaginated follows links.next until exhausted, merging every page's
 // "data" array into a single {"data": [...]} document.
 func runPaginated(cmd *cobra.Command, client apiDoer, path string, query url.Values) error {
-	var merged []json.RawMessage
+	// Non-nil so an empty merge marshals as "data": [] like the API's own
+	// empty pages, not "data": null.
+	merged := []json.RawMessage{}
+	included := []json.RawMessage{}
+	hasIncluded := false // any page carried an included key, even empty
+	seenIncluded := map[string]bool{}
 	nextLink := ""
 	for page := 0; page < maxPages; page++ {
 		resp, err := client.Do(cmd.Context(), "GET", path, query, nil)
@@ -330,8 +394,9 @@ func runPaginated(cmd *cobra.Command, client apiDoer, path string, query url.Val
 			return printResponse(cmd, resp)
 		}
 		var parsed struct {
-			Data  []json.RawMessage `json:"data"`
-			Links struct {
+			Data     []json.RawMessage `json:"data"`
+			Included []json.RawMessage `json:"included"`
+			Links    struct {
 				Next string `json:"next"`
 			} `json:"links"`
 		}
@@ -339,6 +404,27 @@ func runPaginated(cmd *cobra.Command, client apiDoer, path string, query url.Val
 			return fmt.Errorf("parsing page %d: %w", page+1, err)
 		}
 		merged = append(merged, parsed.Data...)
+		// Merge included too — the same related resource legitimately
+		// appears on several pages, so dedupe by JSON:API identity. An
+		// empty included array still marks the key as present, so the
+		// merged document keeps the shape of the pages it merged.
+		if parsed.Included != nil {
+			hasIncluded = true
+		}
+		for _, item := range parsed.Included {
+			var ref struct {
+				Type string `json:"type"`
+				ID   string `json:"id"`
+			}
+			if json.Unmarshal(item, &ref) == nil && ref.Type != "" && ref.ID != "" {
+				k := ref.Type + "/" + ref.ID
+				if seenIncluded[k] {
+					continue
+				}
+				seenIncluded[k] = true
+			}
+			included = append(included, item)
+		}
 		nextLink = parsed.Links.Next
 		if nextLink == "" {
 			break
@@ -356,10 +442,19 @@ func runPaginated(cmd *cobra.Command, client apiDoer, path string, query url.Val
 			return fmt.Errorf("parsing next link query: %w", err)
 		}
 	}
+	doc := map[string]any{"data": merged}
+	if hasIncluded {
+		doc["included"] = included
+	}
 	if nextLink != "" {
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: stopped after %d pages with more results remaining\n", maxPages)
+		// Carry the last page's next link into the merged document, JSON:API
+		// style: its presence marks the merge as incomplete, and its
+		// page[cursor] is where a follow-up run resumes (--page-cursor).
+		// Complete merges keep the plain {"data": [...]} shape.
+		doc["links"] = map[string]string{"next": nextLink}
 	}
-	out, err := json.Marshal(map[string]any{"data": merged})
+	out, err := json.Marshal(doc)
 	if err != nil {
 		return err
 	}
