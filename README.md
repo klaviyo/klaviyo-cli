@@ -607,7 +607,7 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 
 </details>
 
-Beta API operations live under `klaviyo beta` — 153 commands across 12 groups, sending the beta revision header by default:
+Beta API operations live under `klaviyo beta` — 154 commands across 12 groups, sending the beta revision header by default:
 
 <details>
 <summary><strong><code>api-keys</code></strong> — 3 commands</summary>
@@ -721,7 +721,7 @@ Beta API operations live under `klaviyo beta` — 153 commands across 12 groups,
 
 </details>
 <details>
-<summary><strong><code>customer-agent</code></strong> — 37 commands</summary>
+<summary><strong><code>customer-agent</code></strong> — 38 commands</summary>
 
 | Command | Description |
 | --- | --- |
@@ -729,6 +729,7 @@ Beta API operations live under `klaviyo beta` — 153 commands across 12 groups,
 | `klaviyo beta customer-agent create-agent-secret` | Create Agent Secret |
 | `klaviyo beta customer-agent create-agent-skill` | Create Agent Skill |
 | `klaviyo beta customer-agent create-agent-tool` | Create Agent Tool |
+| `klaviyo beta customer-agent create-customer-agent-conversation` | Create Conversation |
 | `klaviyo beta customer-agent create-customer-agent-response` | Generate Customer Agent Response |
 | `klaviyo beta customer-agent delete-agent-knowledge` | Delete Agent Knowledge |
 | `klaviyo beta customer-agent delete-agent-secret` | Delete Agent Secret |
