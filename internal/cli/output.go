@@ -42,12 +42,33 @@ type apiDoer interface {
 // error details are shown).
 func printResponse(cmd *cobra.Command, resp *api.Response) error {
 	w := cmd.OutOrStdout()
-	if opts.jq != "" && resp.OK() {
-		return applyJQ(w, resp.Body, opts.jq, shouldRenderTable(w))
+	if opts.jq != "" {
+		if resp.OK() {
+			// A 204/empty-body success has nothing to filter: print nothing
+			// and exit 0 (tags update returns 204 — erroring here would fail
+			// scripts on a request that succeeded).
+			if len(bytes.TrimSpace(resp.Body)) == 0 {
+				return nil
+			}
+			return applyJQ(w, resp.Body, opts.jq, shouldRenderTable(w))
+		}
+		// --jq reserves stdout for the filtered result. An error body can't
+		// be filtered meaningfully, so it goes to stderr — a script's
+		// ID=$(... --jq .data.id) captures nothing instead of the error
+		// blob, and the non-2xx still returns an error below.
+		w = cmd.ErrOrStderr()
 	}
 	if resp.OK() && shouldRenderTable(w) {
 		if items, ok := parseResourceList(resp.Body); ok {
 			renderTable(w, items)
+			// The table hides links.next, so a terminal user would otherwise
+			// have no sign that more pages exist nor a cursor to continue
+			// with. stderr keeps the hint out of captures and pipes. This
+			// also fires when --paginate stopped at its page cap, since the
+			// merged document carries the continuation link.
+			if cursor := nextCursor(resp.Body); cursor != "" {
+				fmt.Fprintf(cmd.ErrOrStderr(), "\nMore results — continue with: --page-cursor %s\n", sanitizeTerminal(cursor))
+			}
 			return nil
 		}
 	}
@@ -107,6 +128,31 @@ func applyJQ(w io.Writer, body []byte, expr string, toTerminal bool) error {
 	}
 }
 
+// nextCursor extracts the bare pagination cursor from a list response's
+// links.next, for the table footer hint. Empty when there is no next page
+// (or the link carries no recognizable cursor parameter).
+func nextCursor(body []byte) string {
+	var parsed struct {
+		Links struct {
+			Next string `json:"next"`
+		} `json:"links"`
+	}
+	if json.Unmarshal(body, &parsed) != nil || parsed.Links.Next == "" {
+		return ""
+	}
+	u, err := url.Parse(parsed.Links.Next)
+	if err != nil {
+		return ""
+	}
+	q := u.Query()
+	for _, name := range []string{"page[cursor]", "page_cursor"} {
+		if v := q.Get(name); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 type resourceItem struct {
 	ID         string         `json:"id"`
 	Attributes map[string]any `json:"attributes"`
@@ -138,7 +184,7 @@ func renderTable(w io.Writer, items []resourceItem) {
 		fmt.Fprintln(w, "No results")
 		return
 	}
-	cols := chooseColumns(items[0].Attributes)
+	cols := chooseColumns(items)
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	header := "ID"
 	for _, c := range cols {
@@ -155,20 +201,39 @@ func renderTable(w io.Writer, items []resourceItem) {
 	_ = tw.Flush()
 }
 
-func chooseColumns(attrs map[string]any) []string {
+// chooseColumns picks the attribute columns: well-known fields first, then
+// remaining attributes alphabetically. Candidates come from every item, not
+// just the first — a field that is null in row one but set in row five
+// still earns its column, so column choice doesn't depend on row order.
+// Scalar-valued fields fill the slots first; object/array fields (rendered
+// as compact JSON) are admitted only when slots remain, which keeps default
+// tables scalar while letting an explicitly requested nested field (e.g.
+// --fields-campaign send_strategy) still produce a column.
+func chooseColumns(items []resourceItem) []string {
+	present := map[string]bool{}
+	scalar := map[string]bool{}
+	for _, item := range items {
+		for k, v := range item.Attributes {
+			present[k] = true
+			switch v.(type) {
+			case string, float64, bool:
+				scalar[k] = true
+			}
+		}
+	}
 	var cols []string
 	for _, c := range preferredColumns {
-		if _, ok := attrs[c]; ok && len(cols) < maxAttrColumns {
+		if present[c] && len(cols) < maxAttrColumns {
 			cols = append(cols, c)
 		}
 	}
-	for _, k := range slices.Sorted(maps.Keys(attrs)) {
-		if len(cols) >= maxAttrColumns {
-			break
-		}
-		switch attrs[k].(type) {
-		case string, float64, bool:
-			if !slices.Contains(cols, k) {
+	keys := slices.Sorted(maps.Keys(present))
+	for _, wantScalar := range []bool{true, false} {
+		for _, k := range keys {
+			if len(cols) >= maxAttrColumns {
+				return cols
+			}
+			if scalar[k] == wantScalar && !slices.Contains(cols, k) {
 				cols = append(cols, k)
 			}
 		}
@@ -177,10 +242,18 @@ func chooseColumns(attrs map[string]any) []string {
 }
 
 func cellValue(v any) string {
-	if v == nil {
+	switch v.(type) {
+	case nil:
 		return ""
+	case string, float64, bool:
+		return sanitizeTerminal(truncate(fmt.Sprintf("%v", v), 40))
 	}
-	return sanitizeTerminal(truncate(fmt.Sprintf("%v", v), 40))
+	// Objects and arrays: compact JSON reads better than Go's map syntax.
+	out, err := json.Marshal(v)
+	if err != nil {
+		return sanitizeTerminal(truncate(fmt.Sprintf("%v", v), 40))
+	}
+	return sanitizeTerminal(truncate(string(out), 40))
 }
 
 // truncate shortens s to at most n runes, appending "..." when cut.

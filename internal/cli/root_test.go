@@ -122,3 +122,19 @@ func TestResolveKeyFromKeyring(t *testing.T) {
 		t.Errorf("unavailable err = %v", err)
 	}
 }
+
+func TestVersionFlagAndCommandAgree(t *testing.T) {
+	fromCmd, err := runCommand(t, "version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"--version"}, {"-v"}} {
+		got, err := runCommand(t, args...)
+		if err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if got != fromCmd || !strings.Contains(got, "klaviyo dev") {
+			t.Errorf("%v = %q, want %q", args, got, fromCmd)
+		}
+	}
+}

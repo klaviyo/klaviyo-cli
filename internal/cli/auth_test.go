@@ -106,14 +106,81 @@ func TestAuthLogout(t *testing.T) {
 	}
 }
 
-func TestAuthLoginRequiresFlagsNonInteractive(t *testing.T) {
+func TestAuthLoginRequiresKeyNonInteractive(t *testing.T) {
 	t.Setenv("KLAVIYO_CONFIG_DIR", t.TempDir())
 	stubStdinTTY(t, false)
-	if _, err := runCommand(t, "auth", "login"); err == nil || !strings.Contains(err.Error(), "--account is required") {
+	// The account name is no longer required (it defaults to the key's
+	// organization), but some form of key is.
+	for _, args := range [][]string{{"auth", "login"}, {"auth", "login", "--account", "x"}} {
+		if _, err := runCommand(t, args...); err == nil || !strings.Contains(err.Error(), "--api-key or --api-key-stdin is required") {
+			t.Errorf("%v: err = %v", args, err)
+		}
+	}
+}
+
+func TestAuthLoginKeyFromStdinAndOrgDefaultName(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv("KLAVIYO_CONFIG_DIR", t.TempDir())
+	stubStdinTTY(t, false)
+	_, gotAuth := accountsServer(t, 200, `{"data":[{"id":"A9","attributes":{"contact_information":{"organization_name":"Acme Inc."}}}]}`)
+
+	root := newRootCmd()
+	root.SetArgs([]string{"auth", "login", "--api-key-stdin"})
+	root.SetIn(strings.NewReader("pk_piped\n"))
+	out := &strings.Builder{}
+	root.SetOut(out)
+	root.SetErr(out)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if *gotAuth != "Klaviyo-API-Key pk_piped" {
+		t.Errorf("Authorization = %q", *gotAuth)
+	}
+	cfg, _ := config.Load()
+	if _, ok := cfg.Accounts["acme-inc"]; !ok {
+		t.Errorf("account name must default to the org slug, got %v", cfg.Accounts)
+	}
+	if key, err := keyring.Get("acme-inc"); err != nil || key != "pk_piped" {
+		t.Errorf("keyring key = %q, err = %v", key, err)
+	}
+}
+
+func TestAuthLoginKeyFlagsMutuallyExclusive(t *testing.T) {
+	t.Setenv("KLAVIYO_CONFIG_DIR", t.TempDir())
+	stubStdinTTY(t, false)
+	if _, err := runCommand(t, "auth", "login", "--api-key", "pk_x", "--api-key-stdin"); err == nil ||
+		!strings.Contains(err.Error(), "none of the others can be") {
 		t.Errorf("err = %v", err)
 	}
-	if _, err := runCommand(t, "auth", "login", "--account", "x"); err == nil || !strings.Contains(err.Error(), "--api-key is required") {
-		t.Errorf("err = %v", err)
+}
+
+func TestAccountSlug(t *testing.T) {
+	cases := map[string]string{
+		"Acme Inc.":      "acme-inc",
+		"Klaviyo Demo":   "klaviyo-demo",
+		"  weird -- Org": "weird-org",
+		"日本語":            "",
+	}
+	for org, want := range cases {
+		if got := accountSlug(org); got != want {
+			t.Errorf("accountSlug(%q) = %q, want %q", org, got, want)
+		}
+	}
+}
+
+func TestAuthSwitchByID(t *testing.T) {
+	seedConfig(t)
+	cfg, _ := config.Load()
+	staging := cfg.Accounts["staging"]
+	if staging.ID == "" {
+		t.Skip("seedConfig has no staging ID")
+	}
+	if _, err := runCommand(t, "auth", "switch", staging.ID); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ = config.Load()
+	if cfg.DefaultAccount != "staging" {
+		t.Errorf("default = %q, want staging via ID", cfg.DefaultAccount)
 	}
 }
 
@@ -267,5 +334,14 @@ func TestVerifyKeyEmptyData(t *testing.T) {
 	accountsServer(t, 200, `{"data":[]}`)
 	if _, _, err := verifyKey(context.Background(), "pk"); err == nil || !strings.Contains(err.Error(), "no account returned") {
 		t.Errorf("err = %v", err)
+	}
+}
+
+func TestAuthLoginAccountShorthand(t *testing.T) {
+	// The local --account shadows the global -a/--account; it must carry the
+	// same shorthand so `-a` works on login like on every other command.
+	f := newAuthLoginCmd().Flags().ShorthandLookup("a")
+	if f == nil || f.Name != "account" {
+		t.Fatalf("auth login -a = %+v, want --account shorthand", f)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"slices"
@@ -77,7 +78,7 @@ func verifyKey(ctx context.Context, key string) (id, org string, err error) {
 
 func newAuthLoginCmd() *cobra.Command {
 	var name, key string
-	var setDefault, insecureStorage bool
+	var keyStdin, setDefault, insecureStorage bool
 
 	cmd := &cobra.Command{
 		Use:   "login",
@@ -87,29 +88,29 @@ func newAuthLoginCmd() *cobra.Command {
 The key is verified against the Klaviyo API before it is stored in the OS
 keychain. If no keychain is available (common on headless Linux and in
 containers), pass --insecure-storage to store the key in the CLI config file
-(0600 permissions) instead. The first account added becomes the default;
-use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
+(0600 permissions) instead. The account name defaults to the organization
+name the key belongs to. The first account added becomes the default;
+use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.
+
+Login is interactive by default (it prompts for the key and name). For
+scripts, CI, or agents, either set KLAVIYO_API_KEY for each run (no stored
+account needed) or log in by piping the key, keeping it out of shell
+history: printf '%s' "$KEY" | klaviyo auth login --api-key-stdin`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			interactive := stdinIsTTY()
 
-			if name == "" {
-				if !interactive {
-					return errors.New("--account is required when not running interactively")
-				}
-				fmt.Fprint(cmd.OutOrStdout(), "Account name [default]: ")
-				line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+			// Key first: verifying it also supplies the organization name
+			// that the account name defaults to below.
+			if keyStdin {
+				raw, err := io.ReadAll(cmd.InOrStdin())
 				if err != nil {
 					return err
 				}
-				name = strings.TrimSpace(line)
-				if name == "" {
-					name = "default"
-				}
+				key = strings.TrimSpace(string(raw))
 			}
-
-			if key == "" {
+			if key == "" && !keyStdin {
 				if !interactive {
-					return errors.New("--api-key is required when not running interactively")
+					return errors.New("--api-key or --api-key-stdin is required when not running interactively")
 				}
 				fmt.Fprint(cmd.OutOrStdout(), "Private API key (input hidden): ")
 				raw, err := term.ReadPassword(int(os.Stdin.Fd()))
@@ -126,6 +127,26 @@ use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 			id, org, err := verifyKey(cmd.Context(), key)
 			if err != nil {
 				return err
+			}
+
+			if name == "" {
+				def := accountSlug(org)
+				if def == "" {
+					def = "default"
+				}
+				if interactive && !keyStdin {
+					// With --api-key-stdin the stream is already consumed,
+					// so the org-derived default applies without a prompt.
+					fmt.Fprintf(cmd.OutOrStdout(), "Account name [%s]: ", def)
+					line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+					if err != nil {
+						return err
+					}
+					name = strings.TrimSpace(line)
+				}
+				if name == "" {
+					name = def
+				}
 			}
 
 			cfg, err := config.Load()
@@ -168,11 +189,35 @@ use --set-default (or ` + "`klaviyo auth switch`" + `) to change it later.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&name, "account", "", "name for this account profile (prompted if omitted)")
+	// This local --account (the name for the NEW profile) shadows the global
+	// -a/--account (the account to use for requests); registering the same
+	// shorthand keeps `-a` working here like it does on every other command.
+	cmd.Flags().StringVarP(&name, "account", "a", "", "name for this account profile (defaults to the key's organization name)")
 	cmd.Flags().StringVar(&key, "api-key", "", "private API key (prompted securely if omitted)")
+	cmd.Flags().BoolVar(&keyStdin, "api-key-stdin", false, "read the private API key from stdin (for scripts and agents; keeps the key out of shell history)")
 	cmd.Flags().BoolVar(&setDefault, "set-default", false, "make this the default account")
 	cmd.Flags().BoolVar(&insecureStorage, "insecure-storage", false, "store the key in the config file instead of the OS keychain")
+	cmd.MarkFlagsMutuallyExclusive("api-key", "api-key-stdin")
 	return cmd
+}
+
+// accountSlug derives a default account name from an organization name:
+// "Acme Inc." -> "acme-inc". Empty when nothing usable survives.
+func accountSlug(org string) string {
+	var b strings.Builder
+	pendingHyphen := false
+	for _, r := range strings.ToLower(org) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if pendingHyphen && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			pendingHyphen = false
+			b.WriteRune(r)
+		} else {
+			pendingHyphen = true
+		}
+	}
+	return b.String()
 }
 
 func newAuthLogoutCmd() *cobra.Command {
@@ -247,7 +292,7 @@ func newAuthListCmd() *cobra.Command {
 func newAuthSwitchCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:               "switch <account>",
-		Short:             "Set the default account",
+		Short:             "Set the default account (by name or account ID)",
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeAccountNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -257,7 +302,19 @@ func newAuthSwitchCmd() *cobra.Command {
 				return err
 			}
 			if _, ok := cfg.Accounts[name]; !ok {
-				return fmt.Errorf("unknown account %q; run `klaviyo auth list`", name)
+				// Not a profile name: try the Klaviyo account ID (sorted
+				// for a deterministic pick if two profiles share one).
+				found := ""
+				for _, n := range slices.Sorted(maps.Keys(cfg.Accounts)) {
+					if cfg.Accounts[n].ID == name {
+						found = n
+						break
+					}
+				}
+				if found == "" {
+					return fmt.Errorf("unknown account %q; run `klaviyo auth list`", name)
+				}
+				name = found
 			}
 			cfg.DefaultAccount = name
 			if err := cfg.Save(); err != nil {
