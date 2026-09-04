@@ -18,13 +18,15 @@ import (
 )
 
 // queryParamSpec pairs an API query parameter name (e.g. "page[size]") with
-// its CLI flag name (e.g. "page-size"), one-line help text, and whether the
-// spec marks the parameter required (enforced client-side).
+// its CLI flag name (e.g. "page-size"), one-line help text, whether the
+// spec marks the parameter required, and the schema's allowed values —
+// both enforced client-side before any request.
 type queryParamSpec struct {
 	Name     string
 	Flag     string
 	Help     string
 	Required bool
+	Enum     []string
 }
 
 // bodyFieldSpec is one flag-able request-body attribute: its dot path under
@@ -144,6 +146,9 @@ func newResourceOpCmd(op *opSpec) *cobra.Command {
 				val := *queryFlags[i]
 				if q.Name == "page[cursor]" || q.Name == "page_cursor" {
 					val = normalizeCursor(q.Name, val)
+				}
+				if err := validateEnumFlag(q, val); err != nil {
+					return err
 				}
 				query.Set(q.Name, val)
 			}
@@ -326,6 +331,27 @@ func convertBodyValue(typ, raw, flag string) (any, error) {
 	default:
 		return raw, nil
 	}
+}
+
+// validateEnumFlag checks a flag value against the parameter's allowed
+// values from the spec, failing fast instead of burning an API call on a
+// guaranteed 400. Values may be comma-separated lists (fields, include) and
+// sort values may carry a leading - for descending order.
+func validateEnumFlag(q queryParamSpec, val string) error {
+	if len(q.Enum) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool, len(q.Enum))
+	for _, v := range q.Enum {
+		allowed[v] = true
+	}
+	for _, part := range strings.Split(val, ",") {
+		part = strings.TrimPrefix(strings.TrimSpace(part), "-")
+		if part == "" || !allowed[part] {
+			return fmt.Errorf("--%s: invalid value %q (allowed: %s)", q.Flag, part, strings.Join(q.Enum, ", "))
+		}
+	}
+	return nil
 }
 
 // nonEmptyArgs rejects empty (or whitespace-only) positional path

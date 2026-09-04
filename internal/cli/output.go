@@ -120,11 +120,20 @@ func applyJQ(w io.Writer, body []byte, expr string, toTerminal bool) error {
 			fmt.Fprintln(w, s)
 			continue
 		}
-		out, err := json.Marshal(v)
-		if err != nil {
+		// json.Marshal HTML-escapes & < > (& etc.), which corrupts
+		// URLs like links.next when copied out of jq output; an encoder
+		// with SetEscapeHTML(false) emits them verbatim. Control characters
+		// stay \u-escaped either way, so terminal output remains safe.
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(false)
+		if err := enc.Encode(v); err != nil {
 			return err
 		}
-		fmt.Fprintln(w, string(out))
+		// Encode appends the newline itself.
+		if _, err := w.Write(buf.Bytes()); err != nil {
+			return err
+		}
 	}
 }
 

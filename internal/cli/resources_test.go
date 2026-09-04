@@ -79,8 +79,8 @@ func TestResourceCmdMapsFlagsToQueryParams(t *testing.T) {
 	op := &opSpec{
 		Group: "widgets", Name: "list", Method: "GET", Path: "/api/widgets",
 		Query: []queryParamSpec{
-			{"page[size]", "page-size", "page size", false},
-			{"filter", "filter", "filter", false},
+			{"page[size]", "page-size", "page size", false, nil},
+			{"filter", "filter", "filter", false, nil},
 		},
 		Paginated: true,
 	}
@@ -102,7 +102,7 @@ func TestRequiredQueryFlagEnforced(t *testing.T) {
 	rec := apiServer(t, 200, `{"data":[]}`)
 	op := &opSpec{
 		Group: "widgets", Name: "list", Method: "GET", Path: "/api/widgets",
-		Query: []queryParamSpec{{"filter", "filter", "filter", true}},
+		Query: []queryParamSpec{{"filter", "filter", "filter", true, nil}},
 	}
 	cmd := newResourceOpCmd(op)
 	cmd.SetArgs(nil)
@@ -132,7 +132,7 @@ func TestCursorFlagAcceptsNextLink(t *testing.T) {
 	rec := apiServer(t, 200, `{"data":[]}`)
 	op := &opSpec{
 		Group: "widgets", Name: "list", Method: "GET", Path: "/api/widgets",
-		Query: []queryParamSpec{{"page[cursor]", "page-cursor", "cursor", false}},
+		Query: []queryParamSpec{{"page[cursor]", "page-cursor", "cursor", false, nil}},
 	}
 	cmd := newResourceOpCmd(op)
 	cmd.SetArgs([]string{"--page-cursor", next})
@@ -633,5 +633,41 @@ func TestRunPaginatedWarnsAtPageCap(t *testing.T) {
 	}
 	if !strings.Contains(parsed.Links.Next, "page%5Bcursor%5D=again") {
 		t.Errorf("capped output missing links.next: %s", out.String())
+	}
+}
+
+func TestEnumQueryFlagValidated(t *testing.T) {
+	rec := apiServer(t, 200, `{"data":[]}`)
+	op := &opSpec{
+		Group: "widgets", Name: "list", Method: "GET", Path: "/api/widgets",
+		Query: []queryParamSpec{
+			{"sort", "sort", "sort", false, []string{"created_at", "id", "name"}},
+			{"fields[widget]", "fields-widget", "fields", false, []string{"id", "name", "status"}},
+		},
+	}
+	run := func(args ...string) error {
+		cmd := newResourceOpCmd(op)
+		cmd.SetArgs(args)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd.Execute()
+	}
+	// Bogus value: rejected before any request, error names the allowed set.
+	err := run("--sort", "created")
+	if err == nil || !strings.Contains(err.Error(), `invalid value "created"`) || !strings.Contains(err.Error(), "created_at, id, name") {
+		t.Fatalf("err = %v", err)
+	}
+	if rec.method != "" {
+		t.Error("no request must be sent for an invalid enum value")
+	}
+	// Descending sort and comma-separated fields lists are valid forms.
+	if err := run("--sort", "-created_at", "--fields-widget", "id, name"); err != nil {
+		t.Fatal(err)
+	}
+	if got := rec.query.Get("sort"); got != "-created_at" {
+		t.Errorf("sort = %q", got)
+	}
+	if err := run("--fields-widget", "id,bogus"); err == nil || !strings.Contains(err.Error(), `invalid value "bogus"`) {
+		t.Errorf("err = %v", err)
 	}
 }

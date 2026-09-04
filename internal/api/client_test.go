@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -99,5 +101,42 @@ func TestDoMergesQueryParams(t *testing.T) {
 	}
 	if gotQuery.Get("filter") != `equals(email,"a@b.com")` {
 		t.Errorf("filter = %q", gotQuery.Get("filter"))
+	}
+}
+
+func TestVerboseLogsRequestAndResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("RateLimit-Remaining", "42")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient("pk_test", "", "test")
+	c.BaseURL = srv.URL
+	var log bytes.Buffer
+	c.Verbose = &log
+
+	if _, err := c.Do(context.Background(), "GET", "/api/metrics/", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	s := log.String()
+	for _, want := range []string{
+		"> GET " + srv.URL + "/api/metrics/",
+		"revision " + DefaultRevision,
+		"< HTTP 200",
+		"Ratelimit-Remaining: 42",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("verbose log missing %q:\n%s", want, s)
+		}
+	}
+	if strings.Contains(s, "pk_test") {
+		t.Error("verbose log must not contain the API key")
+	}
+	// net/http rejects control bytes in headers before they reach us, so
+	// scrubControl is defense-in-depth; test it directly.
+	if got := scrubControl("a\x1b[31mb"); got != "a.[31mb" {
+		t.Errorf("scrubControl = %q", got)
 	}
 }

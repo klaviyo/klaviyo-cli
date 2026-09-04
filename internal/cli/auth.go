@@ -11,6 +11,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -54,6 +55,9 @@ type accountsResponse struct {
 // account ID and organization name.
 func verifyKey(ctx context.Context, key string) (id, org string, err error) {
 	client := api.NewClient(key, opts.revision, version)
+	if opts.verbose {
+		client.Verbose = os.Stderr
+	}
 	resp, err := client.Do(ctx, "GET", "/api/accounts/", nil, nil)
 	if err != nil {
 		return "", "", err
@@ -272,6 +276,10 @@ func newAuthListCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "No accounts configured; run `klaviyo auth login`")
 				return nil
 			}
+			// tabwriter self-sizes the columns; the old fixed %-20s name
+			// column misaligned as soon as a name outgrew it (org-derived
+			// default names easily do).
+			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
 			for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
 				acct := cfg.Accounts[name]
 				marker := " "
@@ -282,9 +290,9 @@ func newAuthListCmd() *cobra.Command {
 				if acct.KeyStorage == config.KeyStorageKeyring {
 					storage = "keyring"
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %-20s %-8s %-8s %s\n", marker, name, acct.ID, storage, acct.Organization)
+				fmt.Fprintf(tw, "%s %s\t%s\t%s\t%s\n", marker, name, acct.ID, storage, acct.Organization)
 			}
-			return nil
+			return tw.Flush()
 		},
 	}
 }

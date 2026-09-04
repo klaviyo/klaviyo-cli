@@ -323,3 +323,20 @@ func TestPrintResponseJQErrorBodyGoesToStderr(t *testing.T) {
 		t.Errorf("error body must be printed raw to stderr, not jq-filtered:\n%s", errOut.String())
 	}
 }
+
+func TestJQOutputDoesNotHTMLEscape(t *testing.T) {
+	stubTable(t, false)
+	opts.jq = "{next: .links.next}"
+	t.Cleanup(func() { opts.jq = "" })
+
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	body := `{"links":{"next":"https://a.klaviyo.com/api/x?page%5Bsize%5D=3&page%5Bcursor%5D=abc"}}`
+	if err := printResponse(cmd, &api.Response{StatusCode: 200, Body: []byte(body)}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), `\u0026`) || !strings.Contains(out.String(), "size%5D=3&page") {
+		t.Errorf("jq output must not HTML-escape &:\n%s", out.String())
+	}
+}

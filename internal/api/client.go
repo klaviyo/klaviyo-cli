@@ -8,9 +8,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -39,6 +41,9 @@ func baseURL() string {
 type Client struct {
 	BaseURL  string
 	Revision string
+	// Verbose, when non-nil, receives one line per request attempt and per
+	// response (status, headers, retry decisions) — typically stderr.
+	Verbose io.Writer
 
 	apiKey    string
 	userAgent string
@@ -87,17 +92,60 @@ func (c *Client) Do(ctx context.Context, method, path string, query url.Values, 
 
 	var resp *Response
 	for attempt := 1; ; attempt++ {
+		c.logf("> %s %s (revision %s, attempt %d/%d)", method, u, c.Revision, attempt, maxAttempts)
 		resp, err = c.doOnce(ctx, method, u, body)
 		if err != nil {
 			return nil, err
 		}
+		c.logResponse(resp)
 		if attempt >= maxAttempts || !c.shouldRetry(method, resp.StatusCode) {
 			return resp, nil
 		}
-		if err := c.wait(ctx, retryDelay(resp, attempt)); err != nil {
+		delay := retryDelay(resp, attempt)
+		c.logf("* retrying HTTP %d in %s", resp.StatusCode, delay)
+		if err := c.wait(ctx, delay); err != nil {
 			return nil, err
 		}
 	}
+}
+
+// logf writes one verbose line when Verbose is set.
+func (c *Client) logf(format string, args ...any) {
+	if c.Verbose == nil {
+		return
+	}
+	fmt.Fprintf(c.Verbose, format+"\n", args...)
+}
+
+// logResponse writes the response status and headers. Header values are
+// server-supplied text possibly bound for a terminal, so control characters
+// are neutralized.
+func (c *Client) logResponse(resp *Response) {
+	if c.Verbose == nil {
+		return
+	}
+	c.logf("< HTTP %d", resp.StatusCode)
+	keys := make([]string, 0, len(resp.Header))
+	for k := range resp.Header {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		for _, v := range resp.Header[k] {
+			c.logf("<   %s: %s", k, scrubControl(v))
+		}
+	}
+}
+
+// scrubControl replaces control characters so hostile header values cannot
+// inject terminal escape sequences into verbose output.
+func scrubControl(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return '.'
+		}
+		return r
+	}, s)
 }
 
 // wait sleeps for d or until ctx is canceled, whichever comes first.

@@ -218,3 +218,35 @@ func TestParseQueries(t *testing.T) {
 		}
 	}
 }
+
+func TestAPICommandRejectsBodyOnGET(t *testing.T) {
+	rec := apiServer(t, 200, `{}`)
+	if _, err := runCommand(t, "api", "/api/lists/", "-d", "x=y"); err == nil ||
+		!strings.Contains(err.Error(), "not supported with GET") {
+		t.Fatalf("err = %v", err)
+	}
+	if rec.method != "" {
+		t.Error("no request must be sent for -d on GET")
+	}
+}
+
+func TestAPICommandAcceptsFullURLForAPIHost(t *testing.T) {
+	rec := apiServer(t, 200, `{"data":[]}`)
+	// apiServer sets KLAVIYO_API_URL; a full URL for that host must work,
+	// with its query merged in.
+	full := os.Getenv("KLAVIYO_API_URL") + "/api/profiles?page%5Bsize%5D=2"
+	if _, err := runCommand(t, "api", full); err != nil {
+		t.Fatal(err)
+	}
+	if rec.path != "/api/profiles" || rec.query.Get("page[size]") != "2" {
+		t.Errorf("request = %s query %v", rec.path, rec.query)
+	}
+	// A URL for any other host is an error, not a mangled request.
+	if _, err := runCommand(t, "api", "https://evil.example/api/profiles"); err == nil ||
+		!strings.Contains(err.Error(), `host "evil.example"`) {
+		t.Fatalf("err = %v", err)
+	}
+	if rec.path != "/api/profiles" {
+		t.Error("foreign-host URL must not produce a request")
+	}
+}

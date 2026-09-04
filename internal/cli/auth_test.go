@@ -345,3 +345,31 @@ func TestAuthLoginAccountShorthand(t *testing.T) {
 		t.Fatalf("auth login -a = %+v, want --account shorthand", f)
 	}
 }
+
+func TestAuthListAlignsLongNames(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv("KLAVIYO_CONFIG_DIR", t.TempDir())
+	cfg := &config.Config{
+		DefaultAccount: "prod",
+		Accounts: map[string]config.Account{
+			"prod":                   {ID: "A1", Organization: "Acme", APIKey: "pk_1"},
+			"petconnect-innovations": {ID: "B2", Organization: "PetConnect Innovations", APIKey: "pk_2"},
+		},
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCommand(t, "auth", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("lines = %d:\n%s", len(lines), out)
+	}
+	// The ID column must start at the same offset on every row, long name
+	// or not (the old fixed %-20s column broke past 20 chars).
+	if i, j := strings.Index(lines[0], "B2"), strings.Index(lines[1], "A1"); i != j || i < 0 {
+		t.Errorf("ID columns misaligned (%d vs %d):\n%s", i, j, out)
+	}
+}

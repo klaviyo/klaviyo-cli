@@ -45,6 +45,12 @@ Examples:
 			if err != nil {
 				return err
 			}
+			// The API rejects GET bodies with a 400; fail before the
+			// round-trip. The likely cause is a forgotten method (it
+			// defaults to GET when only a path is given).
+			if body != nil && method == "GET" {
+				return fmt.Errorf("-d/--data is not supported with GET; specify a method, e.g. `klaviyo api post %s ...`", path)
+			}
 			query, err := parseQueries(queries)
 			if err != nil {
 				return err
@@ -53,6 +59,14 @@ Examples:
 			client, err := newClient()
 			if err != nil {
 				return err
+			}
+			// Accept a whole URL for the configured API host (e.g. a pasted
+			// links.next); any other absolute URL would otherwise be mangled
+			// into <base>/<url> and return an HTML 404.
+			if strings.Contains(path, "://") {
+				if path, err = pathFromURL(path, client.BaseURL, query); err != nil {
+					return err
+				}
 			}
 			if paginate {
 				if method != "GET" {
@@ -71,6 +85,27 @@ Examples:
 	cmd.Flags().StringArrayVarP(&queries, "query", "q", nil, "query parameter as key=value (repeatable)")
 	cmd.Flags().BoolVar(&paginate, "paginate", false, "follow cursor pagination and merge all pages' data and included (meta is per-page and dropped; GET only)")
 	return cmd
+}
+
+// pathFromURL turns an absolute URL for the configured API host into a
+// path, merging its query parameters into query. URLs for any other host
+// are an error — silently rewriting them could send a request somewhere the
+// user did not intend.
+func pathFromURL(raw, base string, query url.Values) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL %q: %w", raw, err)
+	}
+	b, err := url.Parse(base)
+	if err != nil || !strings.EqualFold(u.Host, b.Host) {
+		return "", fmt.Errorf("expected an API path like /api/metrics/ (or a full %s URL), got a URL for host %q", b.Host, u.Host)
+	}
+	for k, vs := range u.Query() {
+		for _, v := range vs {
+			query.Add(k, v)
+		}
+	}
+	return u.Path, nil
 }
 
 const dataFlagHelp = "request body: repeatable path=value pairs rooted at the body's top level, so attributes need their full path (e.g. data.attributes.name=X; dots nest objects, ':=' assigns JSON values), or a single inline JSON, @file, or '-' for stdin"
@@ -180,9 +215,7 @@ func setField(root map[string]any, path string, value any) error {
 }
 
 func parseQueries(queries []string) (url.Values, error) {
-	if len(queries) == 0 {
-		return nil, nil
-	}
+	// Always non-nil: callers (pathFromURL) may Add into the result.
 	values := url.Values{}
 	for _, q := range queries {
 		key, value, found := strings.Cut(q, "=")

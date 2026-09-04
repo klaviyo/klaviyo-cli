@@ -27,6 +27,7 @@ type globalOpts struct {
 	apiKey   string
 	revision string
 	jq       string
+	verbose  bool
 }
 
 var opts globalOpts
@@ -74,6 +75,7 @@ no stored account needed.`,
 	pf.StringVar(&opts.apiKey, "api-key", "", "private API key, bypassing stored accounts (prefer KLAVIYO_API_KEY env)")
 	pf.StringVar(&opts.revision, "revision", "", "API revision header (default "+api.DefaultRevision+")")
 	pf.StringVar(&opts.jq, "jq", "", "filter the JSON response through a jq expression (built in, no jq install needed)")
+	pf.BoolVar(&opts.verbose, "verbose", false, "log each request, retry, and response's status and headers to stderr")
 
 	// Only errors on a programmer mistake (unknown flag name); never exit
 	// from a constructor.
@@ -153,5 +155,9 @@ func newClient() (*api.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return api.NewClient(key, opts.revision, version), nil
+	c := api.NewClient(key, opts.revision, version)
+	if opts.verbose {
+		c.Verbose = os.Stderr
+	}
+	return c, nil
 }
