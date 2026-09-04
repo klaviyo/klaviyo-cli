@@ -607,7 +607,7 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 
 </details>
 
-Beta API operations live under `klaviyo beta` — 153 commands across 12 groups, sending the beta revision header by default:
+Beta API operations live under `klaviyo beta` — 184 commands across 13 groups, sending the beta revision header by default:
 
 <details>
 <summary><strong><code>api-keys</code></strong> — 3 commands</summary>
@@ -721,7 +721,44 @@ Beta API operations live under `klaviyo beta` — 153 commands across 12 groups,
 
 </details>
 <details>
-<summary><strong><code>customer-agent</code></strong> — 37 commands</summary>
+<summary><strong><code>custom-objects</code></strong> — 30 commands</summary>
+
+| Command | Description |
+| --- | --- |
+| `klaviyo beta custom-objects create-object-schema` | Create Object Schema |
+| `klaviyo beta custom-objects create-object-schema-relationship` | Create Object Schema Relationship |
+| `klaviyo beta custom-objects create-object-type` | Create Object Type |
+| `klaviyo beta custom-objects create-profile-schema-relationship` | Create Profile Schema Relationship |
+| `klaviyo beta custom-objects delete-object-schema-relationship` | Delete Object Schema Relationship |
+| `klaviyo beta custom-objects delete-object-type` | Delete Object Type |
+| `klaviyo beta custom-objects delete-profile-schema-relationship` | Delete Profile Schema Relationship |
+| `klaviyo beta custom-objects get-current-schema-for-object-type` | Get Current Schema for Object Type |
+| `klaviyo beta custom-objects get-current-schema-id-for-object-type` | Get Current Schema ID for Object Type |
+| `klaviyo beta custom-objects get-draft-schema-for-object-type` | Get Draft Schema for Object Type |
+| `klaviyo beta custom-objects get-draft-schema-id-for-object-type` | Get Draft Schema ID for Object Type |
+| `klaviyo beta custom-objects get-object-record` | Get Object Record |
+| `klaviyo beta custom-objects get-object-schema` | Get Object Schema |
+| `klaviyo beta custom-objects get-object-schema-relationships` | Get Object Schema Relationships |
+| `klaviyo beta custom-objects get-object-type` | Get Object Type |
+| `klaviyo beta custom-objects get-object-type-relationships` | Get Object Type Relationships |
+| `klaviyo beta custom-objects get-object-types` | Get Object Types |
+| `klaviyo beta custom-objects get-profile-schema-relationships` | Get Profile Schema Relationships |
+| `klaviyo beta custom-objects get-profile-type-relationships` | Get Profile Type Relationships |
+| `klaviyo beta custom-objects get-record-ids-for-object-type` | Get Record IDs for Object Type |
+| `klaviyo beta custom-objects get-records-for-object-type` | Get Records for Object Type |
+| `klaviyo beta custom-objects get-schema-version-ids-for-object-type` | Get Schema Version IDs for Object Type |
+| `klaviyo beta custom-objects get-schema-versions-for-object-type` | Get Schema Versions for Object Type |
+| `klaviyo beta custom-objects get-source-mapping` | Get Source Mapping |
+| `klaviyo beta custom-objects get-source-mapping-for-object-schema` | Get Source Mapping for Object Schema |
+| `klaviyo beta custom-objects get-source-mapping-id-for-object-schema` | Get Source Mapping ID for Object Schema |
+| `klaviyo beta custom-objects update-object-schema` | Update Object Schema |
+| `klaviyo beta custom-objects update-object-schema-relationship` | Update Object Schema Relationship |
+| `klaviyo beta custom-objects update-profile-schema-relationship` | Update Profile Schema Relationship |
+| `klaviyo beta custom-objects update-source-mapping` | Update Source Mapping |
+
+</details>
+<details>
+<summary><strong><code>customer-agent</code></strong> — 38 commands</summary>
 
 | Command | Description |
 | --- | --- |
@@ -729,6 +766,7 @@ Beta API operations live under `klaviyo beta` — 153 commands across 12 groups,
 | `klaviyo beta customer-agent create-agent-secret` | Create Agent Secret |
 | `klaviyo beta customer-agent create-agent-skill` | Create Agent Skill |
 | `klaviyo beta customer-agent create-agent-tool` | Create Agent Tool |
+| `klaviyo beta customer-agent create-customer-agent-conversation` | Create Conversation |
 | `klaviyo beta customer-agent create-customer-agent-response` | Generate Customer Agent Response |
 | `klaviyo beta customer-agent delete-agent-knowledge` | Delete Agent Knowledge |
 | `klaviyo beta customer-agent delete-agent-secret` | Delete Agent Secret |
