@@ -105,7 +105,7 @@ func TestDoMergesQueryParams(t *testing.T) {
 }
 
 func TestVerboseLogsRequestAndResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("RateLimit-Remaining", "42")
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte(`{}`))
