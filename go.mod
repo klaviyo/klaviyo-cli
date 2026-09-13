@@ -1,13 +1,13 @@
 module github.com/klaviyo/klaviyo-cli
 
-go 1.25.5
+go 1.26.0
 
 require (
 	github.com/itchyny/gojq v0.12.19
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/spf13/cobra v1.10.2
 	github.com/zalando/go-keyring v0.2.8
-	golang.org/x/mod v0.40.0
+	golang.org/x/mod v0.41.0
 	golang.org/x/term v0.45.0
 )
 
