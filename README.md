@@ -99,7 +99,7 @@ Core commands:
 | `klaviyo version` | Print the CLI version |
 
 <!-- klaviyo-cli-gen:commands:begin -->
-Resource commands cover every JSON operation in the Klaviyo API — one command per operation, 344 commands across 23 groups. Not covered (non-JSON request body): Create Agent Knowledge File (beta), Upload Image From File. Expand a group for its commands (run `klaviyo <group> <command> --help` for arguments and flags):
+Resource commands cover every JSON operation in the Klaviyo API — one command per operation, 436 commands across 27 groups. Not covered (non-JSON request body): Create Agent Knowledge File (beta), Upload Image From File. Expand a group for its commands (run `klaviyo <group> <command> --help` for arguments and flags):
 
 <details>
 <summary><strong><code>accounts</code></strong> — 2 commands</summary>
@@ -111,35 +111,110 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 
 </details>
 <details>
-<summary><strong><code>campaigns</code></strong> — 26 commands</summary>
+<summary><strong><code>billing</code></strong> — 2 commands</summary>
+
+| Command | Description |
+| --- | --- |
+| `klaviyo billing get-billing-usage` | Get Billing Usage |
+| `klaviyo billing list-billing-usage` | List Billing Usage |
+
+</details>
+<details>
+<summary><strong><code>brands</code></strong> — 25 commands</summary>
+
+| Command | Description |
+| --- | --- |
+| `klaviyo brands create-brand-button` | Create Brand Button |
+| `klaviyo brands create-brand-color` | Create Brand Color |
+| `klaviyo brands create-brand-logo` | Create Brand Logo |
+| `klaviyo brands create-brand-social-group` | Create Brand Social Group |
+| `klaviyo brands delete-brand-button` | Delete Brand Button |
+| `klaviyo brands delete-brand-color` | Delete Brand Color |
+| `klaviyo brands delete-brand-logo` | Delete Brand Logo |
+| `klaviyo brands delete-brand-social-group` | Delete Brand Social Group |
+| `klaviyo brands get-brand-button` | Get Brand Button |
+| `klaviyo brands get-brand-buttons` | Get Brand Buttons |
+| `klaviyo brands get-brand-color` | Get Brand Color |
+| `klaviyo brands get-brand-colors` | Get Brand Colors |
+| `klaviyo brands get-brand-email-default` | Get Brand Email Default |
+| `klaviyo brands get-brand-email-defaults` | Get Brand Email Defaults |
+| `klaviyo brands get-brand-logo` | Get Brand Logo |
+| `klaviyo brands get-brand-logos` | Get Brand Logos |
+| `klaviyo brands get-brand-social-group` | Get Brand Social Group |
+| `klaviyo brands get-brand-social-groups` | Get Brand Social Groups |
+| `klaviyo brands get-brand-voice` | Get Brand Voice |
+| `klaviyo brands update-brand-button` | Update Brand Button |
+| `klaviyo brands update-brand-color` | Update Brand Color |
+| `klaviyo brands update-brand-email-default` | Update Brand Email Default |
+| `klaviyo brands update-brand-logo` | Update Brand Logo |
+| `klaviyo brands update-brand-social-group` | Update Brand Social Group |
+| `klaviyo brands update-brand-voice` | Update Brand Voice |
+
+</details>
+<details>
+<summary><strong><code>campaigns</code></strong> — 60 commands</summary>
 
 | Command | Description |
 | --- | --- |
 | `klaviyo campaigns assign-template-to-campaign-message` | Assign Template to Campaign Message |
 | `klaviyo campaigns cancel-campaign-send` | Cancel Campaign Send |
+| `klaviyo campaigns clone-campaign` | Clone Campaign |
+| `klaviyo campaigns clone-campaign-audience` | Clone Campaign Audience |
+| `klaviyo campaigns clone-campaign-message` | Clone Campaign Message |
 | `klaviyo campaigns create` | Create Campaign |
-| `klaviyo campaigns create-campaign-clone` | Create Campaign Clone |
+| `klaviyo campaigns create-campaign-audience` | Create Campaign Audience |
+| `klaviyo campaigns create-campaign-message` | Create Campaign Message |
+| `klaviyo campaigns create-campaign-variation` | Create Campaign Variation |
 | `klaviyo campaigns delete` | Delete Campaign |
+| `klaviyo campaigns delete-campaign-audience` | Delete Campaign Audience |
+| `klaviyo campaigns delete-campaign-message` | Delete Campaign Message |
+| `klaviyo campaigns delete-campaign-variation` | Delete Campaign Variation |
 | `klaviyo campaigns get` | Get Campaign |
+| `klaviyo campaigns get-audience-for-campaign-message` | Get Audience for Campaign Message |
+| `klaviyo campaigns get-audience-id-for-campaign-message` | Get Audience ID for Campaign Message |
+| `klaviyo campaigns get-audience-ids-for-campaign` | Get Audience IDs for Campaign |
+| `klaviyo campaigns get-campaign-audience` | Get Campaign Audience |
+| `klaviyo campaigns get-campaign-audiences-for-campaign` | Get Campaign Audiences for Campaign |
+| `klaviyo campaigns get-campaign-for-campaign-audience` | Get Campaign for Campaign Audience |
 | `klaviyo campaigns get-campaign-for-campaign-message` | Get Campaign for Campaign Message |
+| `klaviyo campaigns get-campaign-id-for-campaign-audience` | Get Campaign ID for Campaign Audience |
 | `klaviyo campaigns get-campaign-id-for-campaign-message` | Get Campaign ID for Campaign Message |
 | `klaviyo campaigns get-campaign-message` | Get Campaign Message |
+| `klaviyo campaigns get-campaign-messages` | Get Campaign Messages |
+| `klaviyo campaigns get-campaign-messages-for-campaign-audience` | Get Campaign Messages for Campaign Audience |
 | `klaviyo campaigns get-campaign-recipient-estimation` | Get Campaign Recipient Estimation |
 | `klaviyo campaigns get-campaign-recipient-estimation-job` | Get Campaign Recipient Estimation Job |
 | `klaviyo campaigns get-campaign-send-job` | Get Campaign Send Job |
+| `klaviyo campaigns get-campaign-variation` | Get Campaign Variation |
 | `klaviyo campaigns get-image-for-campaign-message` | Get Image for Campaign Message |
+| `klaviyo campaigns get-image-for-campaign-variation` | Get Image for Campaign Variation |
 | `klaviyo campaigns get-image-id-for-campaign-message` | Get Image ID for Campaign Message |
+| `klaviyo campaigns get-image-id-for-campaign-variation` | Get Image ID for Campaign Variation |
+| `klaviyo campaigns get-message-for-campaign-variation` | Get Message for Campaign Variation |
+| `klaviyo campaigns get-message-id-for-campaign-variation` | Get Message ID for Campaign Variation |
 | `klaviyo campaigns get-message-ids-for-campaign` | Get Message IDs for Campaign |
+| `klaviyo campaigns get-message-ids-for-campaign-audience` | Get Message IDs for Campaign Audience |
 | `klaviyo campaigns get-messages-for-campaign` | Get Messages for Campaign |
 | `klaviyo campaigns get-tag-ids-for-campaign` | Get Tag IDs for Campaign |
+| `klaviyo campaigns get-tag-ids-for-campaign-message` | Get Tag IDs for Campaign Message |
 | `klaviyo campaigns get-tags-for-campaign` | Get Tags for Campaign |
+| `klaviyo campaigns get-tags-for-campaign-message` | Get Tags for Campaign Message |
 | `klaviyo campaigns get-template-for-campaign-message` | Get Template for Campaign Message |
 | `klaviyo campaigns get-template-id-for-campaign-message` | Get Template ID for Campaign Message |
+| `klaviyo campaigns get-translation-for-campaign-variation` | Get Translation for Campaign Variation |
+| `klaviyo campaigns get-translation-id-for-campaign-variation` | Get Translation ID for Campaign Variation |
+| `klaviyo campaigns get-variation-ids-for-campaign-message` | Get Variation IDs for Campaign Message |
+| `klaviyo campaigns get-variations-for-campaign-message` | Get Variations for Campaign Message |
 | `klaviyo campaigns list` | Get Campaigns |
 | `klaviyo campaigns refresh-campaign-recipient-estimation` | Refresh Campaign Recipient Estimation |
+| `klaviyo campaigns schedule-campaign` | Schedule Campaign |
+| `klaviyo campaigns schedule-campaign-message` | Schedule Campaign Message |
 | `klaviyo campaigns send-campaign` | Send Campaign |
 | `klaviyo campaigns update` | Update Campaign |
+| `klaviyo campaigns update-campaign-audience` | Update Campaign Audience |
 | `klaviyo campaigns update-campaign-message` | Update Campaign Message |
+| `klaviyo campaigns update-campaign-message-schedule` | Update Campaign Message Schedule |
+| `klaviyo campaigns update-campaign-variation` | Update Campaign Variation |
 | `klaviyo campaigns update-image-for-campaign-message` | Update Image for Campaign Message |
 
 </details>
@@ -326,11 +401,12 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 
 </details>
 <details>
-<summary><strong><code>flows</code></strong> — 21 commands</summary>
+<summary><strong><code>flows</code></strong> — 22 commands</summary>
 
 | Command | Description |
 | --- | --- |
 | `klaviyo flows create` | Create Flow |
+| `klaviyo flows create-flow-action` | Create Flow Action |
 | `klaviyo flows delete` | Delete Flow |
 | `klaviyo flows delete-flow-action` | Delete Flow Action |
 | `klaviyo flows get` | Get Flow |
@@ -354,7 +430,7 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 
 </details>
 <details>
-<summary><strong><code>forms</code></strong> — 9 commands</summary>
+<summary><strong><code>forms</code></strong> — 12 commands</summary>
 
 | Command | Description |
 | --- | --- |
@@ -367,6 +443,9 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 | `klaviyo forms get-version-ids-for-form` | Get Version IDs for Form |
 | `klaviyo forms get-versions-for-form` | Get Versions for Form |
 | `klaviyo forms list` | Get Forms |
+| `klaviyo forms publish-form` | Publish Form |
+| `klaviyo forms unpublish-form` | Unpublish Form |
+| `klaviyo forms update` | Update Form |
 
 </details>
 <details>
@@ -552,22 +631,43 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 
 </details>
 <details>
-<summary><strong><code>templates</code></strong> — 12 commands</summary>
+<summary><strong><code>templates</code></strong> — 17 commands</summary>
 
 | Command | Description |
 | --- | --- |
 | `klaviyo templates clone-template` | Clone Template |
+| `klaviyo templates clone-universal-content` | Clone Universal Content |
 | `klaviyo templates create` | Create Template |
+| `klaviyo templates create-template-conversion-job` | Create Template Conversion Job |
+| `klaviyo templates create-template-preview-send-job` | Create Template Preview Send Job |
 | `klaviyo templates create-universal-content` | Create Universal Content |
 | `klaviyo templates delete` | Delete Template |
 | `klaviyo templates delete-universal-content` | Delete Universal Content |
 | `klaviyo templates get` | Get Template |
 | `klaviyo templates get-all-universal-content` | Get All Universal Content |
+| `klaviyo templates get-template-conversion-job` | Get Template Conversion Job |
+| `klaviyo templates get-template-conversion-jobs` | Get Template Conversion Jobs |
 | `klaviyo templates get-universal-content` | Get Universal Content |
 | `klaviyo templates list` | Get Templates |
 | `klaviyo templates render-template` | Render Template |
 | `klaviyo templates update` | Update Template |
 | `klaviyo templates update-universal-content` | Update Universal Content |
+
+</details>
+<details>
+<summary><strong><code>text-messaging</code></strong> — 9 commands</summary>
+
+| Command | Description |
+| --- | --- |
+| `klaviyo text-messaging create-text-messaging-configuration` | Create Text Messaging Configuration |
+| `klaviyo text-messaging create-text-messaging-sender` | Create Text Messaging Sender |
+| `klaviyo text-messaging create-text-messaging-sender-registration` | Create Text Messaging Sender Registration |
+| `klaviyo text-messaging get-messaging-sender-registration-for-text-messaging-sender` | Get Messaging Sender Registration for Text Messaging Sender |
+| `klaviyo text-messaging get-messaging-sender-registration-id-for-text-messaging-sender` | Get Messaging Sender Registration ID for Text Messaging Sender |
+| `klaviyo text-messaging get-text-messaging-configuration` | Get Text Messaging Configuration |
+| `klaviyo text-messaging get-text-messaging-sender` | Get Text Messaging Sender |
+| `klaviyo text-messaging get-text-messaging-sender-registration` | Get Text Messaging Sender Registration |
+| `klaviyo text-messaging get-text-messaging-senders` | Get Text Messaging Senders |
 
 </details>
 <details>
@@ -578,6 +678,26 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 | `klaviyo tracking-settings get` | Get Tracking Setting |
 | `klaviyo tracking-settings list` | Get Tracking Settings |
 | `klaviyo tracking-settings update` | Update Tracking Setting |
+
+</details>
+<details>
+<summary><strong><code>translations</code></strong> — 13 commands</summary>
+
+| Command | Description |
+| --- | --- |
+| `klaviyo translations create` | Create Translation |
+| `klaviyo translations delete` | Delete Translation |
+| `klaviyo translations get` | Get Translation |
+| `klaviyo translations get-campaign-variation-for-translation` | Get Campaign Variation for Translation |
+| `klaviyo translations get-campaign-variation-id-for-translation` | Get Campaign Variation ID for Translation |
+| `klaviyo translations get-flow-message-for-translation` | Get Flow Message for Translation |
+| `klaviyo translations get-flow-message-id-for-translation` | Get Flow Message ID for Translation |
+| `klaviyo translations get-template-for-translation` | Get Template for Translation |
+| `klaviyo translations get-template-id-for-translation` | Get Template ID for Translation |
+| `klaviyo translations get-template-universal-content-for-translation` | Get Template Universal Content for Translation |
+| `klaviyo translations get-template-universal-content-id-for-translation` | Get Template Universal Content ID for Translation |
+| `klaviyo translations list` | Get Translations |
+| `klaviyo translations update` | Update Translation |
 
 </details>
 <details>
@@ -607,7 +727,7 @@ Resource commands cover every JSON operation in the Klaviyo API — one command 
 
 </details>
 
-Beta API operations live under `klaviyo beta` — 184 commands across 13 groups, sending the beta revision header by default:
+Beta API operations live under `klaviyo beta` — 142 commands across 10 groups, sending the beta revision header by default:
 
 <details>
 <summary><strong><code>api-keys</code></strong> — 3 commands</summary>
@@ -620,108 +740,30 @@ Beta API operations live under `klaviyo beta` — 184 commands across 13 groups,
 
 </details>
 <details>
-<summary><strong><code>applications</code></strong> — 1 command</summary>
+<summary><strong><code>applications</code></strong> — 16 commands</summary>
 
 | Command | Description |
 | --- | --- |
+| `klaviyo beta applications create` | Create Application |
+| `klaviyo beta applications delete` | Delete Application |
+| `klaviyo beta applications delete-application-install` | Delete Application Install |
+| `klaviyo beta applications get` | Get Application |
+| `klaviyo beta applications get-application-for-application-install` | Get Application for Application Install |
+| `klaviyo beta applications get-application-id-for-application-install` | Get Application ID for Application Install |
+| `klaviyo beta applications get-application-install` | Get Application Install |
+| `klaviyo beta applications get-application-installs` | Get Application Installs |
+| `klaviyo beta applications get-client-application` | Get Client Application |
+| `klaviyo beta applications get-client-applications` | Get Client Applications |
+| `klaviyo beta applications get-install-for-application` | Get Install for Application |
+| `klaviyo beta applications get-install-id-for-application` | Get Install ID for Application |
+| `klaviyo beta applications get-install-ids-for-application` | Get Install IDs for Application |
+| `klaviyo beta applications get-installs-for-application` | Get Installs for Application |
 | `klaviyo beta applications list` | Get Applications |
+| `klaviyo beta applications update` | Update Application |
 
 </details>
 <details>
-<summary><strong><code>billing</code></strong> — 2 commands</summary>
-
-| Command | Description |
-| --- | --- |
-| `klaviyo beta billing get-billing-usage` | Get Billing Usage |
-| `klaviyo beta billing list-billing-usage` | List Billing Usage |
-
-</details>
-<details>
-<summary><strong><code>brands</code></strong> — 25 commands</summary>
-
-| Command | Description |
-| --- | --- |
-| `klaviyo beta brands create-brand-button` | Create Brand Button |
-| `klaviyo beta brands create-brand-color` | Create Brand Color |
-| `klaviyo beta brands create-brand-logo` | Create Brand Logo |
-| `klaviyo beta brands create-brand-social-group` | Create Brand Social Group |
-| `klaviyo beta brands delete-brand-button` | Delete Brand Button |
-| `klaviyo beta brands delete-brand-color` | Delete Brand Color |
-| `klaviyo beta brands delete-brand-logo` | Delete Brand Logo |
-| `klaviyo beta brands delete-brand-social-group` | Delete Brand Social Group |
-| `klaviyo beta brands get-brand-button` | Get Brand Button |
-| `klaviyo beta brands get-brand-buttons` | Get Brand Buttons |
-| `klaviyo beta brands get-brand-color` | Get Brand Color |
-| `klaviyo beta brands get-brand-colors` | Get Brand Colors |
-| `klaviyo beta brands get-brand-email-default` | Get Brand Email Default |
-| `klaviyo beta brands get-brand-email-defaults` | Get Brand Email Defaults |
-| `klaviyo beta brands get-brand-logo` | Get Brand Logo |
-| `klaviyo beta brands get-brand-logos` | Get Brand Logos |
-| `klaviyo beta brands get-brand-social-group` | Get Brand Social Group |
-| `klaviyo beta brands get-brand-social-groups` | Get Brand Social Groups |
-| `klaviyo beta brands get-brand-voice` | Get Brand Voice |
-| `klaviyo beta brands update-brand-button` | Update Brand Button |
-| `klaviyo beta brands update-brand-color` | Update Brand Color |
-| `klaviyo beta brands update-brand-email-default` | Update Brand Email Default |
-| `klaviyo beta brands update-brand-logo` | Update Brand Logo |
-| `klaviyo beta brands update-brand-social-group` | Update Brand Social Group |
-| `klaviyo beta brands update-brand-voice` | Update Brand Voice |
-
-</details>
-<details>
-<summary><strong><code>campaigns</code></strong> — 45 commands</summary>
-
-| Command | Description |
-| --- | --- |
-| `klaviyo beta campaigns clone-campaign` | Clone Campaign |
-| `klaviyo beta campaigns clone-campaign-audience` | Clone Campaign Audience |
-| `klaviyo beta campaigns clone-campaign-message` | Clone Campaign Message |
-| `klaviyo beta campaigns create` | Create Campaign |
-| `klaviyo beta campaigns create-campaign-audience` | Create Campaign Audience |
-| `klaviyo beta campaigns create-campaign-message` | Create Campaign Message |
-| `klaviyo beta campaigns create-campaign-variation` | Create Campaign Variation |
-| `klaviyo beta campaigns delete` | Delete Campaign |
-| `klaviyo beta campaigns delete-campaign-audience` | Delete Campaign Audience |
-| `klaviyo beta campaigns delete-campaign-message` | Delete Campaign Message |
-| `klaviyo beta campaigns delete-campaign-variation` | Delete Campaign Variation |
-| `klaviyo beta campaigns get` | Get Campaign |
-| `klaviyo beta campaigns get-audience-for-campaign-message` | Get Audience for Campaign Message |
-| `klaviyo beta campaigns get-audience-id-for-campaign-message` | Get Audience ID for Campaign Message |
-| `klaviyo beta campaigns get-audience-ids-for-campaign` | Get Audience IDs for Campaign |
-| `klaviyo beta campaigns get-campaign-audience` | Get Campaign Audience |
-| `klaviyo beta campaigns get-campaign-audiences-for-campaign` | Get Campaign Audiences for Campaign |
-| `klaviyo beta campaigns get-campaign-for-campaign-audience` | Get Campaign for Campaign Audience |
-| `klaviyo beta campaigns get-campaign-for-campaign-message` | Get Campaign for Campaign Message |
-| `klaviyo beta campaigns get-campaign-id-for-campaign-audience` | Get Campaign ID for Campaign Audience |
-| `klaviyo beta campaigns get-campaign-id-for-campaign-message` | Get Campaign ID for Campaign Message |
-| `klaviyo beta campaigns get-campaign-message` | Get Campaign Message |
-| `klaviyo beta campaigns get-campaign-messages` | Get Campaign Messages |
-| `klaviyo beta campaigns get-campaign-messages-for-campaign-audience` | Get Campaign Messages for Campaign Audience |
-| `klaviyo beta campaigns get-campaign-variation` | Get Campaign Variation |
-| `klaviyo beta campaigns get-image-for-campaign-variation` | Get Image for Campaign Variation |
-| `klaviyo beta campaigns get-image-id-for-campaign-variation` | Get Image ID for Campaign Variation |
-| `klaviyo beta campaigns get-message-for-campaign-variation` | Get Message for Campaign Variation |
-| `klaviyo beta campaigns get-message-id-for-campaign-variation` | Get Message ID for Campaign Variation |
-| `klaviyo beta campaigns get-message-ids-for-campaign` | Get Message IDs for Campaign |
-| `klaviyo beta campaigns get-message-ids-for-campaign-audience` | Get Message IDs for Campaign Audience |
-| `klaviyo beta campaigns get-messages-for-campaign` | Get Messages for Campaign |
-| `klaviyo beta campaigns get-tag-ids-for-campaign-message` | Get Tag IDs for Campaign Message |
-| `klaviyo beta campaigns get-tags-for-campaign-message` | Get Tags for Campaign Message |
-| `klaviyo beta campaigns get-translation-for-campaign-variation` | Get Translation for Campaign Variation |
-| `klaviyo beta campaigns get-translation-id-for-campaign-variation` | Get Translation ID for Campaign Variation |
-| `klaviyo beta campaigns get-variation-ids-for-campaign-message` | Get Variation IDs for Campaign Message |
-| `klaviyo beta campaigns get-variations-for-campaign-message` | Get Variations for Campaign Message |
-| `klaviyo beta campaigns list` | Get Campaigns |
-| `klaviyo beta campaigns schedule-campaign-message` | Schedule Campaign Message |
-| `klaviyo beta campaigns update` | Update Campaign |
-| `klaviyo beta campaigns update-campaign-audience` | Update Campaign Audience |
-| `klaviyo beta campaigns update-campaign-message` | Update Campaign Message |
-| `klaviyo beta campaigns update-campaign-message-schedule` | Update Campaign Message Schedule |
-| `klaviyo beta campaigns update-campaign-variation` | Update Campaign Variation |
-
-</details>
-<details>
-<summary><strong><code>custom-objects</code></strong> — 30 commands</summary>
+<summary><strong><code>custom-objects</code></strong> — 31 commands</summary>
 
 | Command | Description |
 | --- | --- |
@@ -734,6 +776,7 @@ Beta API operations live under `klaviyo beta` — 184 commands across 13 groups,
 | `klaviyo beta custom-objects delete-profile-schema-relationship` | Delete Profile Schema Relationship |
 | `klaviyo beta custom-objects get-current-schema-for-object-type` | Get Current Schema for Object Type |
 | `klaviyo beta custom-objects get-current-schema-id-for-object-type` | Get Current Schema ID for Object Type |
+| `klaviyo beta custom-objects get-data-sources` | Get Data Sources |
 | `klaviyo beta custom-objects get-draft-schema-for-object-type` | Get Draft Schema for Object Type |
 | `klaviyo beta custom-objects get-draft-schema-id-for-object-type` | Get Draft Schema ID for Object Type |
 | `klaviyo beta custom-objects get-object-record` | Get Object Record |
@@ -758,7 +801,7 @@ Beta API operations live under `klaviyo beta` — 184 commands across 13 groups,
 
 </details>
 <details>
-<summary><strong><code>customer-agent</code></strong> — 38 commands</summary>
+<summary><strong><code>customer-agent</code></strong> — 42 commands</summary>
 
 | Command | Description |
 | --- | --- |
@@ -767,11 +810,14 @@ Beta API operations live under `klaviyo beta` — 184 commands across 13 groups,
 | `klaviyo beta customer-agent create-agent-skill` | Create Agent Skill |
 | `klaviyo beta customer-agent create-agent-tool` | Create Agent Tool |
 | `klaviyo beta customer-agent create-customer-agent-conversation` | Create Conversation |
+| `klaviyo beta customer-agent create-customer-agent-conversation-context` | Create Conversation Context |
 | `klaviyo beta customer-agent create-customer-agent-response` | Generate Customer Agent Response |
 | `klaviyo beta customer-agent delete-agent-knowledge` | Delete Agent Knowledge |
 | `klaviyo beta customer-agent delete-agent-secret` | Delete Agent Secret |
 | `klaviyo beta customer-agent delete-agent-skill` | Delete Agent Skill |
 | `klaviyo beta customer-agent delete-agent-tool` | Delete Agent Tool |
+| `klaviyo beta customer-agent get-agent-conversation-context-ids-for-customer-agent-conversation` | Get Agent Conversation Context IDs for Customer Agent Conversation |
+| `klaviyo beta customer-agent get-agent-conversation-contexts-for-customer-agent-conversation` | Get Agent Conversation Contexts for Customer Agent Conversation |
 | `klaviyo beta customer-agent get-agent-knowledge` | Get Agent Knowledge |
 | `klaviyo beta customer-agent get-agent-message-ids-for-customer-agent-conversation` | Get Agent Message IDs for Customer Agent Conversation |
 | `klaviyo beta customer-agent get-agent-messages-for-customer-agent-conversation` | Get Agent Messages for Customer Agent Conversation |
@@ -781,6 +827,7 @@ Beta API operations live under `klaviyo beta` — 184 commands across 13 groups,
 | `klaviyo beta customer-agent get-agent-skills` | Get Agent Skills |
 | `klaviyo beta customer-agent get-agent-tool` | Get Agent Tool |
 | `klaviyo beta customer-agent get-agent-tools` | Get Agent Tools |
+| `klaviyo beta customer-agent get-customer-agents` | Get Customer Agents |
 | `klaviyo beta customer-agent get-secret-ids-for-agent-tool` | Get Secret IDs for Agent Tool |
 | `klaviyo beta customer-agent get-secrets-for-agent-tool` | Get Secrets for Agent Tool |
 | `klaviyo beta customer-agent get-skill-ids-for-agent-tool` | Get Skill IDs for Agent Tool |
@@ -813,75 +860,85 @@ Beta API operations live under `klaviyo beta` — 184 commands across 13 groups,
 
 </details>
 <details>
-<summary><strong><code>profiles</code></strong> — 3 commands</summary>
+<summary><strong><code>folders</code></strong> — 11 commands</summary>
+
+| Command | Description |
+| --- | --- |
+| `klaviyo beta folders create` | Create Folder |
+| `klaviyo beta folders delete` | Delete Folder |
+| `klaviyo beta folders get` | Get Folder |
+| `klaviyo beta folders get-child-ids-for-folder` | Get Child IDs for Folder |
+| `klaviyo beta folders get-children-for-folder` | Get Children for Folder |
+| `klaviyo beta folders get-parent-for-folder` | Get Parent for Folder |
+| `klaviyo beta folders get-parent-id-for-folder` | Get Parent ID for Folder |
+| `klaviyo beta folders list` | Get Folders |
+| `klaviyo beta folders update` | Update Folder |
+| `klaviyo beta folders update-children-for-folder` | Update Children for Folder |
+| `klaviyo beta folders update-parent-for-folder` | Update Parent for Folder |
+
+</details>
+<details>
+<summary><strong><code>location-hub</code></strong> — 17 commands</summary>
+
+| Command | Description |
+| --- | --- |
+| `klaviyo beta location-hub add-segments-to-location` | Add Segments to Location |
+| `klaviyo beta location-hub create-location` | Create Location |
+| `klaviyo beta location-hub create-location-live-event` | Create Location Live Event |
+| `klaviyo beta location-hub delete-location` | Delete Location |
+| `klaviyo beta location-hub delete-location-live-event` | Delete Location Live Event |
+| `klaviyo beta location-hub get-location` | Get Location |
+| `klaviyo beta location-hub get-location-hub-setting` | Get Location Hub Setting |
+| `klaviyo beta location-hub get-location-live-event` | Get Location Live Event |
+| `klaviyo beta location-hub get-location-live-events` | Get Location Live Events |
+| `klaviyo beta location-hub get-locations` | Get Locations |
+| `klaviyo beta location-hub get-segment-ids-for-location` | Get Segment IDs for Location |
+| `klaviyo beta location-hub get-segments-for-location` | Get Segments for Location |
+| `klaviyo beta location-hub query-proximity-segment-definition` | Create Proximity Segment Definition |
+| `klaviyo beta location-hub remove-segments-from-location` | Remove Segments from Location |
+| `klaviyo beta location-hub update-location` | Update Location |
+| `klaviyo beta location-hub update-location-hub-setting` | Update Location Hub Setting |
+| `klaviyo beta location-hub update-location-live-event` | Update Location Live Event |
+
+</details>
+<details>
+<summary><strong><code>profiles</code></strong> — 6 commands</summary>
 
 | Command | Description |
 | --- | --- |
 | `klaviyo beta profiles create-profile-bulk-export-job` | Create Profile Bulk Export Job |
 | `klaviyo beta profiles get-download-for-profile-bulk-export-job` | Get Download for Profile Bulk Export Job |
+| `klaviyo beta profiles get-object-records-for-profile` | Get Object Records for Profile |
+| `klaviyo beta profiles get-object-type-ids-for-profile` | Get Object Type IDs for Profile |
+| `klaviyo beta profiles get-object-types-for-profile` | Get Object Types for Profile |
 | `klaviyo beta profiles get-profile-bulk-export-job` | Get Profile Bulk Export Job |
 
 </details>
 <details>
-<summary><strong><code>sending-domains</code></strong> — 6 commands</summary>
+<summary><strong><code>reporting</code></strong> — 3 commands</summary>
+
+| Command | Description |
+| --- | --- |
+| `klaviyo beta reporting ask-analytics-question` | Ask Analytics Question |
+| `klaviyo beta reporting query-social-series` | Query Social Series |
+| `klaviyo beta reporting query-social-values` | Query Social Values |
+
+</details>
+<details>
+<summary><strong><code>sending-domains</code></strong> — 10 commands</summary>
 
 | Command | Description |
 | --- | --- |
 | `klaviyo beta sending-domains create` | Create Sending Domain |
+| `klaviyo beta sending-domains create-managed-dns-record-change-job` | Create Managed Dns Record Change Job |
+| `klaviyo beta sending-domains create-managed-dns-record-list-job` | Create Managed Dns Record List Job |
 | `klaviyo beta sending-domains create-sending-domain-activation-job` | Create Sending Domain Activation Job |
 | `klaviyo beta sending-domains create-sending-domain-verification-job` | Create Sending Domain Verification Job |
 | `klaviyo beta sending-domains delete` | Delete Sending Domain |
 | `klaviyo beta sending-domains get` | Get Sending Domain |
+| `klaviyo beta sending-domains get-managed-dns-record-change-job` | Get Managed Dns Record Change Job |
+| `klaviyo beta sending-domains get-managed-dns-record-list-job` | Get Managed Dns Record List Job |
 | `klaviyo beta sending-domains list` | Get Sending Domains |
-
-</details>
-<details>
-<summary><strong><code>templates</code></strong> — 6 commands</summary>
-
-| Command | Description |
-| --- | --- |
-| `klaviyo beta templates create-template-preview-send-job` | Create Template Preview Send Job |
-| `klaviyo beta templates create-universal-content` | Create Universal Content |
-| `klaviyo beta templates delete-universal-content` | Delete Universal Content |
-| `klaviyo beta templates get-all-universal-content` | Get All Universal Content |
-| `klaviyo beta templates get-universal-content` | Get Universal Content |
-| `klaviyo beta templates update-universal-content` | Update Universal Content |
-
-</details>
-<details>
-<summary><strong><code>text-messaging</code></strong> — 9 commands</summary>
-
-| Command | Description |
-| --- | --- |
-| `klaviyo beta text-messaging create-text-messaging-configuration` | Create Text Messaging Configuration |
-| `klaviyo beta text-messaging create-text-messaging-sender` | Create Text Messaging Sender |
-| `klaviyo beta text-messaging create-text-messaging-sender-registration` | Create Text Messaging Sender Registration |
-| `klaviyo beta text-messaging get-messaging-sender-registration-for-text-messaging-sender` | Get Messaging Sender Registration for Text Messaging Sender |
-| `klaviyo beta text-messaging get-messaging-sender-registration-id-for-text-messaging-sender` | Get Messaging Sender Registration ID for Text Messaging Sender |
-| `klaviyo beta text-messaging get-text-messaging-configuration` | Get Text Messaging Configuration |
-| `klaviyo beta text-messaging get-text-messaging-sender` | Get Text Messaging Sender |
-| `klaviyo beta text-messaging get-text-messaging-sender-registration` | Get Text Messaging Sender Registration |
-| `klaviyo beta text-messaging get-text-messaging-senders` | Get Text Messaging Senders |
-
-</details>
-<details>
-<summary><strong><code>translations</code></strong> — 13 commands</summary>
-
-| Command | Description |
-| --- | --- |
-| `klaviyo beta translations create` | Create Translation |
-| `klaviyo beta translations delete` | Delete Translation |
-| `klaviyo beta translations get` | Get Translation |
-| `klaviyo beta translations get-campaign-variation-for-translation` | Get Campaign Variation for Translation |
-| `klaviyo beta translations get-campaign-variation-id-for-translation` | Get Campaign Variation ID for Translation |
-| `klaviyo beta translations get-flow-message-for-translation` | Get Flow Message for Translation |
-| `klaviyo beta translations get-flow-message-id-for-translation` | Get Flow Message ID for Translation |
-| `klaviyo beta translations get-template-for-translation` | Get Template for Translation |
-| `klaviyo beta translations get-template-id-for-translation` | Get Template ID for Translation |
-| `klaviyo beta translations get-template-universal-content-for-translation` | Get Template Universal Content for Translation |
-| `klaviyo beta translations get-template-universal-content-id-for-translation` | Get Template Universal Content ID for Translation |
-| `klaviyo beta translations list` | Get Translations |
-| `klaviyo beta translations update` | Update Translation |
 
 </details>
 <!-- klaviyo-cli-gen:commands:end -->

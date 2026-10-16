@@ -4,8 +4,8 @@ package api
 
 // DefaultRevision is the Klaviyo API revision the CLI pins by default,
 // matching the vendored OpenAPI spec the commands were generated from.
-const DefaultRevision = "2026-07-15"
+const DefaultRevision = "2026-10-15"
 
 // DefaultBetaRevision is the revision beta commands pin by default; the
 // beta APIs require a beta ("<date>.pre") revision header.
-const DefaultBetaRevision = "2026-07-15.pre"
+const DefaultBetaRevision = "2026-10-15.pre"
