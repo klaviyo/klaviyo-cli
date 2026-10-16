@@ -458,16 +458,17 @@ func TestBetaCommandsMountedUnderBetaParent(t *testing.T) {
 	if err != nil || betaCmd.Use != "beta" {
 		t.Fatalf("beta parent not found: %v", err)
 	}
-	// A beta group must exist under beta with GA-style CRUD names. cobra's
-	// Find is lenient (unknown trailing args return the parent without
-	// error), so assert on the resolved command's name, not just on err.
-	cmd, _, err := root.Find([]string{"beta", "campaigns", "list"})
-	if err != nil || cmd.Name() != "list" {
-		t.Errorf("beta campaigns list resolved to %q (err %v)", cmd.Name(), err)
+	// A beta group must exist under beta. cobra's Find is lenient (unknown
+	// trailing args return the parent without error), so assert on the
+	// resolved command's name, not just on err. customer-agent is beta-only;
+	// swap it if it graduates to GA.
+	cmd, _, err := root.Find([]string{"beta", "customer-agent", "get-agent-tools"})
+	if err != nil || cmd.Name() != "get-agent-tools" {
+		t.Errorf("beta customer-agent get-agent-tools resolved to %q (err %v)", cmd.Name(), err)
 	}
-	// A beta-only verb must not leak into the stable campaigns group.
-	if cmd, _, _ := root.Find([]string{"campaigns", "clone-campaign"}); cmd != nil && cmd.Name() == "clone-campaign" {
-		t.Error("beta command leaked into the stable campaigns group")
+	// A beta-only command must not leak into the stable command tree.
+	if cmd, _, _ := root.Find([]string{"customer-agent", "get-agent-tools"}); cmd != nil && cmd.Name() == "get-agent-tools" {
+		t.Error("beta command leaked into the stable command tree")
 	}
 }
 
