@@ -13,6 +13,7 @@ import (
 	"github.com/klaviyo/klaviyo-cli/internal/api"
 	"github.com/klaviyo/klaviyo-cli/internal/config"
 	"github.com/klaviyo/klaviyo-cli/internal/keyring"
+	"github.com/klaviyo/klaviyo-cli/internal/tui"
 )
 
 // Set at release time via goreleaser ldflags.
@@ -35,6 +36,9 @@ var opts globalOpts
 // Execute runs the root command, checking for newer releases in the
 // background and printing a notice to stderr when one exists.
 func Execute() error {
+	if args, requested := tuiArgs(os.Args[1:]); requested {
+		return tui.Launch(args)
+	}
 	var updateCh <-chan string
 	if shouldCheckForUpdate() {
 		updateCh = startUpdateCheck()
@@ -71,6 +75,7 @@ no stored account needed.`,
 	root.SetVersionTemplate(versionString())
 
 	pf := root.PersistentFlags()
+	pf.Bool("tui", false, "open the optional interactive browser (install with: klaviyo tui setup)")
 	pf.StringVarP(&opts.account, "account", "a", "", "named account to use (default: KLAVIYO_ACCOUNT env, then configured default)")
 	pf.StringVar(&opts.apiKey, "api-key", "", "private API key, bypassing stored accounts (prefer KLAVIYO_API_KEY env)")
 	pf.StringVar(&opts.revision, "revision", "", "API revision header (default "+api.DefaultRevision+")")
@@ -81,7 +86,7 @@ no stored account needed.`,
 	// from a constructor.
 	_ = root.RegisterFlagCompletionFunc("account", completeAccountNames)
 
-	root.AddCommand(newAuthCmd(), newAPICmd(), newConfigCmd(), newOpenCmd(), newVersionCmd())
+	root.AddCommand(newAuthCmd(), newAPICmd(), newConfigCmd(), newOpenCmd(), newVersionCmd(), newTUICmd())
 	addResourceCmds(root)
 	return root
 }

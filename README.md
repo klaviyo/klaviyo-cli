@@ -1027,3 +1027,23 @@ Found a bug or want a feature? [Open an issue](https://github.com/klaviyo/klaviy
 ## License
 
 [MIT](LICENSE)
+## Optional interactive browser
+
+Discover commands, descriptions, and options in a terminal browser:
+
+```sh
+# Install Bun >= 1.3.14 from https://bun.sh first (optional; ordinary CLI stays Go-only).
+klaviyo tui setup
+klaviyo --tui
+klaviyo profiles --tui
+klaviyo profiles get PROFILE_ID --help --tui
+```
+
+An exact command opens a prefilled, editable form; **nothing runs until Enter**.
+The child receives your terminal, working directory, and environment. After it
+exits, Enter returns to the browser. Search names/descriptions, browse groups,
+inspect details, favorite commands (Ctrl+F), and copy commands (Ctrl+Y).
+`--tui` is recognized anywhere before the literal `--` separator.
+
+Setup installs pinned OpenTUI dependencies from assets embedded in this binary.
+Launch never downloads dependencies. See [browser setup, storage, and development](internal/tui/README.md).
